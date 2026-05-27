@@ -469,6 +469,20 @@ async function initApp(user){
   periodos=pers||[];
   currentPeriodo=periodos.find(p=>p.activo)||periodos[0];
 
+  // ── REALTIME ──
+  sb.channel('cambios')
+    .on('postgres_changes',{event:'*',schema:'public',table:'registros'},async()=>{
+      await renderColabView(selectedColabId);
+      if(document.getElementById('panel-resumen').classList.contains('visible')) await renderAdminResumen();
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'colaboradores'},async()=>{
+      const{data:colabs}=await sb.from('colaboradores').select('*').eq('activo',true).order('nombre');
+      colaboradores=colabs||[];
+      if(isAdmin){renderSidebar();renderChipsMobile();populateAdminForm();}
+      await renderColabView(selectedColabId);
+    })
+    .subscribe();
+
   if(isAdmin){
     renderSidebar();renderChipsMobile();
     selectedColabId=colaboradores[0]?.id;
@@ -544,7 +558,7 @@ async function renderColabView(colabId){
 
   const noLlegoBasal = colab.tipo==='A' && bonoBruto < colab.pago_basal && bonoBruto > 0;
   const sinActividad = colab.tipo==='A' && bonoBruto === 0;
-  const superaBasal = colab.tipo==='A' && bonoBruto > colab.pago_basal;
+  const superaBasal = colab.tipo==='A' && bonoBruto >= colab.pago_basal && bonoBruto > 0;
   const alerta = noLlegoBasal || sinActividad;
 
   let html=`
