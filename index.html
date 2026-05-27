@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EsporaPay</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+:root{
+  --black:#1d1d1f;--gray1:#f5f5f7;--gray2:#e8e8ed;--gray3:#d2d2d7;
+  --gray4:#6e6e73;--gray5:#aeaeb2;--blue:#0071e3;--blue-h:#0077ed;
+  --green:#34c759;--amber:#ff9f0a;--red:#ff3b30;
+  --font:-apple-system,'SF Pro Display','SF Pro Text',sans-serif;
+}
+body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh}
+
+/* ── AUTH ── */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--gray1)}
+.auth-card{background:#fff;border-radius:20px;padding:40px 32px;width:100%;max-width:380px;border:1px solid var(--gray2)}
+.auth-logo{font-size:26px;font-weight:700;letter-spacing:-.5px;text-align:center;margin-bottom:8px}
+.auth-sub{font-size:14px;color:var(--gray4);text-align:center;margin-bottom:32px}
+.auth-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray4);display:block;margin-bottom:6px}
+.auth-input{width:100%;background:var(--gray1);border:1.5px solid var(--gray2);border-radius:10px;color:var(--black);font-family:var(--font);font-size:15px;padding:12px 14px;outline:none;transition:border-color .15s;margin-bottom:16px}
+.auth-input:focus{border-color:var(--blue);background:#fff}
+.auth-btn{width:100%;background:var(--black);color:#fff;font-weight:600;font-family:var(--font);font-size:16px;padding:14px;border-radius:10px;border:none;cursor:pointer;transition:all .15s;margin-top:4px}
+.auth-btn:hover{background:#333}
+.auth-btn:active{transform:scale(.98)}
+.auth-error{background:#fff2f2;border:1px solid #ffd0d0;border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:16px;display:none}
+
+/* ── APP LAYOUT ── */
+.app{display:none;max-width:480px;margin:0 auto;min-height:100vh}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--gray2);position:sticky;top:0;background:rgba(255,255,255,.92);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);z-index:100}
+.nav-logo{font-size:18px;font-weight:700;letter-spacing:-.4px}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-user{font-size:12px;color:var(--gray4)}
+.nav-out{font-size:12px;color:var(--blue);cursor:pointer;font-weight:500;background:none;border:none;font-family:var(--font)}
+.seg{display:flex;background:var(--gray1);border-radius:9px;padding:2px;gap:1px}
+.seg-btn{padding:5px 14px;border-radius:7px;font-size:12px;font-weight:500;border:none;cursor:pointer;background:transparent;color:var(--gray4);font-family:var(--font);transition:all .18s}
+.seg-btn.active{background:#fff;color:var(--black);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+/* ── SCREENS ── */
+.screen{display:none;padding:20px 20px 40px}
+.screen.visible{display:block;animation:fadeUp .2s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── COLABORADOR VIEW ── */
+.chip-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:20px;scrollbar-width:none}
+.chip-scroll::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;padding:7px 16px;border-radius:20px;font-size:13px;font-weight:500;border:1.5px solid var(--gray2);background:#fff;color:var(--gray4);cursor:pointer;transition:all .15s;white-space:nowrap}
+.chip.active{background:var(--black);color:#fff;border-color:var(--black)}
+
+.collab-header{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+.avatar{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
+.av-a{background:#e3f2fd;color:#0d47a1}
+.av-b{background:#f3e5f5;color:#7b1fa2}
+.av-c{background:#e8f5e9;color:#1b5e20}
+.av-d{background:#fff3e0;color:#e65100}
+.av-e{background:#fce4ec;color:#880e4f}
+.collab-name{font-size:18px;font-weight:700;letter-spacing:-.4px}
+.collab-role{font-size:13px;color:var(--gray4);margin-top:2px}
+.badge{display:inline-block;margin-top:5px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px}
+.badge-a{background:#e3f2fd;color:#0d47a1}
+.badge-b{background:var(--gray1);color:var(--gray4)}
+.badge-c{background:#e8f5e9;color:#1b5e20}
+.badge-bp{background:#fff3e0;color:#e65100}
+
+.balance-card{background:var(--black);border-radius:20px;padding:24px 22px;margin-bottom:14px}
+.bc-label{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:8px}
+.bc-amount{font-size:38px;font-weight:700;color:#fff;letter-spacing:-1.2px;line-height:1}
+.bc-amount sup{font-size:18px;font-weight:500;vertical-align:super;opacity:.5;letter-spacing:0}
+.bc-period{font-size:11px;color:rgba(255,255,255,.3);margin-top:10px}
+
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.stat-tile{background:var(--gray1);border-radius:14px;padding:16px}
+.st-label{font-size:11px;color:var(--gray4);text-transform:uppercase;letter-spacing:.04em;font-weight:500;margin-bottom:6px}
+.st-val{font-size:20px;font-weight:700;letter-spacing:-.4px}
+.st-sub{font-size:11px;color:var(--gray5);margin-top:3px}
+
+.section-title{font-size:17px;font-weight:700;letter-spacing:-.3px;margin-bottom:14px}
+
+.kpi-list{display:flex;flex-direction:column;background:var(--gray1);border-radius:16px;overflow:hidden;margin-bottom:24px}
+.kpi-item{padding:14px 16px;border-bottom:1px solid var(--gray2)}
+.kpi-item:last-child{border-bottom:none}
+.kpi-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.kpi-name{font-size:14px;font-weight:500}
+.kpi-meta{font-size:12px;color:var(--gray4)}
+.progress-wrap{height:5px;background:var(--gray2);border-radius:10px;overflow:hidden}
+.progress-fill{height:100%;border-radius:10px;transition:width .5s ease}
+.fill-green{background:var(--green)}
+.fill-amber{background:var(--amber)}
+.fill-red{background:var(--red)}
+.fill-gray{background:var(--gray3)}
+.kpi-bottom{display:flex;justify-content:space-between;margin-top:6px}
+.kpi-pct{font-size:12px;font-weight:600}
+.kpi-pct.green{color:var(--green)}
+.kpi-pct.amber{color:var(--amber)}
+.kpi-pct.red{color:var(--red)}
+.kpi-pct.gray{color:var(--gray4)}
+.kpi-earned{font-size:12px;color:var(--gray4)}
+.kpi-earned strong{color:var(--black)}
+
+.pago-tile{background:var(--gray1);border-radius:16px;overflow:hidden;margin-bottom:24px}
+.pago-row{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--gray2)}
+.pago-row:last-child{border-bottom:none;background:#fff}
+.pr-label{font-size:14px;color:var(--black)}
+.pr-val{font-size:15px;font-weight:600}
+.pr-val.green{color:var(--green)}
+.pr-val.total{font-size:17px;font-weight:700}
+
+.empty-state{text-align:center;padding:40px 0;color:var(--gray4);font-size:14px}
+
+/* ── ADMIN VIEW ── */
+.admin-tabs{display:flex;border-bottom:1px solid var(--gray2);margin-bottom:20px}
+.admin-tab{flex:1;text-align:center;font-size:13px;font-weight:500;padding:12px 4px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:var(--font);color:var(--gray4);transition:all .15s;letter-spacing:-.1px}
+.admin-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.admin-panel{display:none}
+.admin-panel.visible{display:block;animation:fadeUp .15s ease}
+
+.form-block{margin-bottom:16px}
+.form-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray4);display:block;margin-bottom:6px}
+.form-field{width:100%;background:var(--gray1);border:1.5px solid var(--gray2);border-radius:10px;color:var(--black);font-family:var(--font);font-size:15px;padding:12px 14px;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none}
+.form-field:focus{border-color:var(--blue);background:#fff}
+.form-field::placeholder{color:var(--gray3)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-apple{width:100%;background:var(--blue);color:#fff;font-weight:600;font-family:var(--font);font-size:16px;padding:14px;border-radius:10px;border:none;cursor:pointer;transition:all .15s;letter-spacing:-.1px;margin-top:4px}
+.btn-apple:hover{background:var(--blue-h)}
+.btn-apple:active{transform:scale(.98)}
+.btn-apple:disabled{background:var(--gray3);cursor:not-allowed}
+
+.resumen-header{margin-bottom:20px}
+.rh-period{font-size:13px;color:var(--gray4);margin-bottom:4px}
+.rh-title{font-size:22px;font-weight:700;letter-spacing:-.5px}
+
+.collab-card-admin{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--gray2)}
+.collab-card-admin:last-child{border-bottom:none}
+.cca-left{display:flex;align-items:center;gap:12px}
+.cca-name{font-size:14px;font-weight:600;letter-spacing:-.1px}
+.cca-meta{font-size:12px;color:var(--gray5);margin-top:2px}
+.cca-amount{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.cca-count{font-size:11px;color:var(--gray5);text-align:right;margin-top:2px}
+
+.total-banner{background:var(--black);border-radius:14px;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;margin-top:20px}
+.tb-label{font-size:13px;color:rgba(255,255,255,.5);font-weight:500}
+.tb-amount{font-size:22px;font-weight:700;color:#fff;letter-spacing:-.5px}
+
+.kpi-input-card{background:var(--gray1);border-radius:14px;padding:16px;margin-bottom:12px}
+.kpi-input-name{font-size:14px;font-weight:600;margin-bottom:10px;letter-spacing:-.1px}
+.kpi-input-row{display:flex;align-items:center;gap:10px}
+.kpi-input-row label{font-size:12px;color:var(--gray4);width:90px;flex-shrink:0}
+.kpi-input-row input{flex:1;background:#fff;border:1.5px solid var(--gray2);border-radius:8px;color:var(--black);font-family:var(--font);font-size:14px;padding:8px 12px;outline:none}
+.kpi-input-row input:focus{border-color:var(--blue)}
+.kpi-input-max{font-size:11px;color:var(--gray5);margin-top:6px}
+
+.loading{text-align:center;padding:40px;color:var(--gray4);font-size:14px}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--black);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;letter-spacing:-.1px;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;pointer-events:none;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* Team */
+.team-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--gray2)}
+.team-row:last-child{border-bottom:none}
+
+/* Responsive */
+@media(max-width:480px){
+  .app{max-width:100%}
+  .auth-card{padding:32px 24px}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth-wrap" id="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">EsporaPay</div>
+    <div class="auth-sub">Ingresa con tu cuenta</div>
+    <div class="auth-error" id="auth-error"></div>
+    <label class="auth-label">Correo</label>
+    <input class="auth-input" type="email" id="login-email" placeholder="correo@espora.mx" autocomplete="email">
+    <label class="auth-label">Contraseña</label>
+    <input class="auth-input" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+    <button class="auth-btn" onclick="login()">Entrar</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <nav class="nav">
+    <div class="nav-logo">EsporaPay</div>
+    <div class="nav-right">
+      <span class="nav-user" id="nav-user"></span>
+      <div class="seg" id="admin-seg" style="display:none">
+        <button class="seg-btn active" onclick="switchMode('colab')">Mi cuenta</button>
+        <button class="seg-btn" onclick="switchMode('admin')">Admin</button>
+      </div>
+      <button class="nav-out" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <!-- COLABORADOR -->
+  <div class="screen visible" id="screen-colab">
+    <div class="chip-scroll" id="chip-scroll" style="display:none"></div>
+    <div id="colab-content"><div class="loading">Cargando...</div></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="screen" id="screen-admin">
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchAdminTab('registrar',this)">Registrar</button>
+      <button class="admin-tab" onclick="switchAdminTab('resumen',this)">Resumen</button>
+      <button class="admin-tab" onclick="switchAdminTab('equipo',this)">Equipo</button>
+    </div>
+
+    <!-- Registrar -->
+    <div class="admin-panel visible" id="panel-registrar">
+      <div class="form-block">
+        <label class="form-label">Colaborador</label>
+        <select class="form-field" id="f-colab" onchange="loadKpisForAdmin()"></select>
+      </div>
+      <div class="form-block">
+        <label class="form-label">Período</label>
+        <select class="form-field" id="f-periodo"></select>
+      </div>
+      <div id="kpi-inputs-admin"><div class="loading">Selecciona un colaborador</div></div>
+      <button class="btn-apple" onclick="guardarRegistro()" id="btn-guardar" style="margin-top:8px">Guardar</button>
+    </div>
+
+    <!-- Resumen -->
+    <div class="admin-panel" id="panel-resumen">
+      <div class="resumen-header">
+        <div class="rh-period" id="adm-period-label"></div>
+        <div class="rh-title">Resumen del período</div>
+      </div>
+      <div id="adm-list"><div class="loading">Cargando...</div></div>
+      <div class="total-banner">
+        <div class="tb-label">Total a pagar</div>
+        <div class="tb-amount" id="adm-total">$0</div>
+      </div>
+    </div>
+
+    <!-- Equipo -->
+    <div class="admin-panel" id="panel-equipo">
+      <div id="team-list"><div class="loading">Cargando...</div></div>
+      <div style="margin-top:28px">
+        <div class="section-title" style="margin-bottom:18px">Nuevo colaborador</div>
+        <div class="form-block">
+          <label class="form-label">Nombre completo</label>
+          <input class="form-field" id="new-nombre" placeholder="Nombre completo">
+        </div>
+        <div class="form-block">
+          <label class="form-label">Correo (será su usuario)</label>
+          <input class="form-field" id="new-email" type="email" placeholder="correo@espora.mx">
+        </div>
+        <div class="form-block">
+          <label class="form-label">Contraseña temporal</label>
+          <input class="form-field" id="new-pass" type="text" placeholder="mínimo 8 caracteres">
+        </div>
+        <div class="form-grid">
+          <div class="form-block">
+            <label class="form-label">Puesto</label>
+            <input class="form-field" id="new-puesto" placeholder="Ej. Diseñador">
+          </div>
+          <div class="form-block">
+            <label class="form-label">Tipo</label>
+            <select class="form-field" id="new-tipo">
+              <option value="C">Solo entregables</option>
+              <option value="A">Base + bono KPIs</option>
+              <option value="B">Base fija</option>
+              <option value="B+">Base + entregables</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-block">
+            <label class="form-label">Pago basal</label>
+            <input class="form-field" id="new-basal" type="number" placeholder="0">
+          </div>
+          <div class="form-block">
+            <label class="form-label">Pago máximo</label>
+            <input class="form-field" id="new-maximo" type="number" placeholder="0">
+          </div>
+        </div>
+        <button class="btn-apple" onclick="crearColaborador()">Crear colaborador</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://qpfbrlhzjukffazkdakf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZmJybGh6anVrZmZhemtkYWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDYzMTgsImV4cCI6MjA5NTQ4MjMxOH0.PXR8d_F3IYMkycpFnrNQdSWpksk-4Yls04F7ayLpszo';
+const ADMIN_EMAIL = 'admin@espora.mx';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let isAdmin = false;
+let colaboradores = [];
+let periodos = [];
+let selectedColabId = null;
+let currentPeriodo = null;
+let AV_CLASSES = ['av-a','av-b','av-c','av-d','av-e'];
+
+function fmt(n){ return '$'+(Math.round(n||0)).toLocaleString('es-MX'); }
+function initials(n){ return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function avClass(i){ return AV_CLASSES[i%AV_CLASSES.length]; }
+function cc(v){ return v>=75?'green':v>=50?'amber':v>0?'red':'gray'; }
+function fillClass(v){ return v>=75?'fill-green':v>=50?'fill-amber':v>0?'fill-red':'fill-gray'; }
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ── AUTH ──
+async function login(){
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  const errEl=document.getElementById('auth-error');
+  errEl.style.display='none';
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){ errEl.textContent='Correo o contraseña incorrectos'; errEl.style.display='block'; return; }
+  await initApp(data.user);
+}
+
+async function logout(){
+  await sb.auth.signOut();
+  document.getElementById('app').style.display='none';
+  document.getElementById('auth-wrap').style.display='flex';
+}
+
+document.getElementById('login-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
+
+// ── INIT ──
+async function initApp(user){
+  currentUser=user;
+  isAdmin=(user.email===ADMIN_EMAIL);
+  document.getElementById('auth-wrap').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('nav-user').textContent=user.email.split('@')[0];
+  if(isAdmin) document.getElementById('admin-seg').style.display='flex';
+
+  // Load data
+  const [{data:colabs},{data:pers}]=await Promise.all([
+    sb.from('colaboradores').select('*').eq('activo',true).order('nombre'),
+    sb.from('periodos').select('*').order('fecha_inicio',{ascending:false})
+  ]);
+  colaboradores=colabs||[];
+  periodos=pers||[];
+  currentPeriodo=periodos.find(p=>p.activo)||periodos[0];
+
+  if(isAdmin){
+    document.getElementById('chip-scroll').style.display='flex';
+    renderChips();
+    selectedColabId=colaboradores[0]?.id;
+    await renderColabView(selectedColabId);
+    await renderAdminResumen();
+    await renderTeam();
+    populateAdminForm();
+  } else {
+    // Find colaborador by user_id
+    const colab=colaboradores.find(c=>c.user_id===user.id);
+    if(colab){
+      selectedColabId=colab.id;
+      await renderColabView(colab.id);
+    } else {
+      document.getElementById('colab-content').innerHTML='<div class="empty-state">Tu cuenta aún no está vinculada a un colaborador.<br>Contacta al administrador.</div>';
+    }
+  }
+}
+
+// ── CHIPS ──
+function renderChips(){
+  const el=document.getElementById('chip-scroll');
+  el.innerHTML=colaboradores.map(c=>`
+    <div class="chip ${c.id===selectedColabId?'active':''}" onclick="selectColab('${c.id}')">${c.nombre.split(' ')[0]}</div>
+  `).join('');
+}
+
+async function selectColab(id){
+  selectedColabId=id;
+  renderChips();
+  await renderColabView(id);
+}
+
+// ── COLAB VIEW ──
+async function renderColabView(colabId){
+  const el=document.getElementById('colab-content');
+  el.innerHTML='<div class="loading">Cargando...</div>';
+  const colab=colaboradores.find(c=>c.id===colabId);
+  if(!colab){ el.innerHTML='<div class="empty-state">Colaborador no encontrado</div>'; return; }
+
+  // Load KPIs and registros for current period
+  const [{data:kpis},{data:registros}]=await Promise.all([
+    sb.from('kpis').select('*').eq('colaborador_id',colabId),
+    sb.from('registros').select('*').eq('colaborador_id',colabId).eq('periodo_id',currentPeriodo?.id)
+  ]);
+
+  const idx=colaboradores.findIndex(c=>c.id===colabId);
+  const av=avClass(idx);
+  const badgeMap={A:'badge-a',B:'badge-b',C:'badge-c','B+':'badge-bp'};
+  const badgeLabel={A:'Base + bono',B:'Base fija',C:'Solo entregables','B+':'Base + extras'};
+
+  // Calculate totals
+  let totalPago=0;
+  let diferenciacion=0;
+  let bonoBruto=0;
+
+  if(colab.tipo==='A'){
+    kpis?.forEach(k=>{
+      const reg=registros?.find(r=>r.kpi_id===k.id);
+      const cumpl=reg?.cumplimiento_pct||0;
+      bonoBruto+=(colab.pago_maximo*(k.peso_max/100))*(cumpl/100);
+    });
+    if(bonoBruto>colab.pago_basal){
+      diferenciacion=bonoBruto-colab.pago_basal;
+      totalPago=bonoBruto;
+    } else {
+      totalPago=colab.pago_basal;
+    }
+  } else if(colab.tipo==='B'){
+    totalPago=colab.pago_basal;
+  } else if(colab.tipo==='C'){
+    kpis?.forEach(k=>{
+      const reg=registros?.find(r=>r.kpi_id===k.id);
+      const qty=reg?.cantidad||0;
+      const precio=reg?.valor_unitario_override||k.valor_unitario||0;
+      totalPago+=qty*precio;
+    });
+  } else if(colab.tipo==='B+'){
+    totalPago=colab.pago_basal;
+    kpis?.forEach(k=>{
+      const reg=registros?.find(r=>r.kpi_id===k.id);
+      const qty=reg?.cantidad||0;
+      const precio=reg?.valor_unitario_override||k.valor_unitario||0;
+      totalPago+=qty*precio;
+    });
+  }
+
+  const periodoLabel=currentPeriodo
+    ? new Date(currentPeriodo.fecha_inicio+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'})+' → '+new Date(currentPeriodo.fecha_fin+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})
+    : '—';
+
+  let html=`
+    <div class="collab-header">
+      <div class="avatar ${av}">${initials(colab.nombre)}</div>
+      <div>
+        <div class="collab-name">${colab.nombre}</div>
+        <div class="collab-role">${colab.puesto||''}</div>
+        <span class="badge ${badgeMap[colab.tipo]}">${badgeLabel[colab.tipo]}</span>
+      </div>
+    </div>
+    <div class="balance-card">
+      <div class="bc-label">Total a pagar</div>
+      <div class="bc-amount"><sup>$</sup>${Math.round(totalPago).toLocaleString('es-MX')}</div>
+      <div class="bc-period">${periodoLabel}</div>
+    </div>`;
+
+  // Stats
+  if(colab.tipo==='A'){
+    const pctGeneral=colab.pago_maximo>0?Math.round((bonoBruto/colab.pago_maximo)*100):0;
+    html+=`<div class="stats-row">
+      <div class="stat-tile"><div class="st-label">Bono acumulado</div><div class="st-val">${fmt(bonoBruto)}</div><div class="st-sub">de ${fmt(colab.pago_maximo)} máx</div></div>
+      <div class="stat-tile"><div class="st-label">Avance general</div><div class="st-val">${pctGeneral}%</div><div class="st-sub">del período</div></div>
+    </div>`;
+  } else if(colab.tipo==='B'){
+    html+=`<div class="stats-row">
+      <div class="stat-tile"><div class="st-label">Pago basal</div><div class="st-val">${fmt(colab.pago_basal)}</div><div class="st-sub">garantizado</div></div>
+      <div class="stat-tile"><div class="st-label">KPIs</div><div class="st-val">${kpis?.length||0}</div><div class="st-sub">de seguimiento</div></div>
+    </div>`;
+  } else {
+    const totalItems=registros?.reduce((a,r)=>a+(r.cantidad||0),0)||0;
+    html+=`<div class="stats-row">
+      <div class="stat-tile"><div class="st-label">Entregables</div><div class="st-val">${totalItems}</div><div class="st-sub">del período</div></div>
+      <div class="stat-tile"><div class="st-label">KPIs activos</div><div class="st-val">${kpis?.filter(k=>k.valor_unitario>0).length||0}</div><div class="st-sub">con precio</div></div>
+    </div>`;
+  }
+
+  // KPI list
+  if(kpis?.length){
+    html+=`<div class="section-title">Avance de ${colab.tipo==='A'?'KPIs':'metas'}</div><div class="kpi-list">`;
+    kpis.forEach(k=>{
+      const reg=registros?.find(r=>r.kpi_id===k.id);
+      if(k.tipo_kpi==='porcentaje'){
+        const cumpl=reg?.cumplimiento_pct||0;
+        const ganado=(colab.pago_maximo*(k.peso_max/100))*(cumpl/100);
+        const c=cc(cumpl);
+        html+=`<div class="kpi-item">
+          <div class="kpi-top"><span class="kpi-name">${k.nombre}</span><span class="kpi-meta">${k.peso_max}% del bono · Máx ${fmt(colab.pago_maximo*(k.peso_max/100))}</span></div>
+          <div class="progress-wrap"><div class="progress-fill ${fillClass(cumpl)}" style="width:${cumpl}%"></div></div>
+          <div class="kpi-bottom"><span class="kpi-pct ${c}">${cumpl}%</span><span class="kpi-earned">Ganado: <strong>${fmt(ganado)}</strong></span></div>
+        </div>`;
+      } else {
+        const qty=reg?.cantidad||0;
+        const precio=reg?.valor_unitario_override||k.valor_unitario||0;
+        const ganado=qty*precio;
+        const meta=k.meta_periodo;
+        const pct=meta?Math.round((qty/meta)*100):null;
+        const c=pct!=null?cc(pct):'gray';
+        html+=`<div class="kpi-item">
+          <div class="kpi-top"><span class="kpi-name">${k.nombre}</span><span class="kpi-meta">${meta?`${qty} / ${meta}`:`${qty} entregados`}${precio?` · ${fmt(precio)} c/u`:''}</span></div>
+          ${meta?`<div class="progress-wrap"><div class="progress-fill ${fillClass(pct)}" style="width:${Math.min(pct,100)}%"></div></div>`:''}
+          <div class="kpi-bottom">
+            ${meta?`<span class="kpi-pct ${c}">${pct}%</span>`:`<span class="kpi-pct gray">${qty} pzas</span>`}
+            <span class="kpi-earned">Ganado: <strong>${fmt(ganado)}</strong></span>
+          </div>
+        </div>`;
+      }
+    });
+    html+=`</div>`;
+  }
+
+  // Desglose pago
+  html+=`<div class="section-title">Desglose de pago</div><div class="pago-tile">`;
+  if(colab.tipo==='A'){
+    html+=`<div class="pago-row"><span class="pr-label">Pago basal</span><span class="pr-val">${fmt(colab.pago_basal)}</span></div>`;
+    if(diferenciacion>0){
+      html+=`<div class="pago-row"><span class="pr-label">Diferenciación de pago basal</span><span class="pr-val green">${fmt(diferenciacion)}</span></div>`;
+    }
+  } else if(colab.tipo==='B'){
+    html+=`<div class="pago-row"><span class="pr-label">Pago basal</span><span class="pr-val">${fmt(colab.pago_basal)}</span></div>`;
+  } else if(colab.tipo==='B+'){
+    html+=`<div class="pago-row"><span class="pr-label">Pago basal</span><span class="pr-val">${fmt(colab.pago_basal)}</span></div>`;
+    const extras=totalPago-colab.pago_basal;
+    if(extras>0) html+=`<div class="pago-row"><span class="pr-label">Estudios extra</span><span class="pr-val green">${fmt(extras)}</span></div>`;
+  } else {
+    kpis?.forEach(k=>{
+      const reg=registros?.find(r=>r.kpi_id===k.id);
+      const qty=reg?.cantidad||0;
+      const precio=reg?.valor_unitario_override||k.valor_unitario||0;
+      if(qty>0) html+=`<div class="pago-row"><span class="pr-label">${k.nombre}</span><span class="pr-val">${fmt(qty*precio)}</span></div>`;
+    });
+  }
+  html+=`<div class="pago-row"><span class="pr-label" style="font-weight:600">Total a pagar</span><span class="pr-val total">${fmt(totalPago)}</span></div></div>`;
+
+  el.innerHTML=html;
+}
+
+// ── ADMIN FORM ──
+function populateAdminForm(){
+  const sel=document.getElementById('f-colab');
+  sel.innerHTML=colaboradores.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  const perSel=document.getElementById('f-periodo');
+  perSel.innerHTML=periodos.map(p=>`<option value="${p.id}" ${p.activo?'selected':''}>${fmtPeriodo(p)}</option>`).join('');
+}
+
+function fmtPeriodo(p){
+  const ini=new Date(p.fecha_inicio+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'});
+  const fin=new Date(p.fecha_fin+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+  return `${ini} → ${fin}`;
+}
+
+async function loadKpisForAdmin(){
+  const colabId=document.getElementById('f-colab').value;
+  const periodoId=document.getElementById('f-periodo').value;
+  const colab=colaboradores.find(c=>c.id===colabId);
+  const el=document.getElementById('kpi-inputs-admin');
+  el.innerHTML='<div class="loading">Cargando KPIs...</div>';
+
+  const [{data:kpis},{data:registros}]=await Promise.all([
+    sb.from('kpis').select('*').eq('colaborador_id',colabId),
+    sb.from('registros').select('*').eq('colaborador_id',colabId).eq('periodo_id',periodoId)
+  ]);
+
+  if(!kpis?.length){ el.innerHTML='<div class="empty-state">Este colaborador no tiene KPIs registrados</div>'; return; }
+
+  let html='';
+  kpis.forEach(k=>{
+    const reg=registros?.find(r=>r.kpi_id===k.id);
+    if(k.tipo_kpi==='porcentaje'){
+      html+=`<div class="kpi-input-card">
+        <div class="kpi-input-name">${k.nombre}</div>
+        <div class="kpi-input-row">
+          <label>Cumplimiento</label>
+          <input type="number" min="0" max="100" step="0.1" value="${reg?.cumplimiento_pct||0}" data-kpi-id="${k.id}" data-tipo="porcentaje" placeholder="0">
+        </div>
+        <div class="kpi-input-max">Peso: ${k.peso_max}% · Máx bono: ${fmt(colab.pago_maximo*(k.peso_max/100))}</div>
+      </div>`;
+    } else {
+      const precio=k.valor_unitario||0;
+      html+=`<div class="kpi-input-card">
+        <div class="kpi-input-name">${k.nombre}</div>
+        <div class="kpi-input-row">
+          <label>Cantidad</label>
+          <input type="number" min="0" step="1" value="${reg?.cantidad||0}" data-kpi-id="${k.id}" data-tipo="fijo" data-reg-id="${reg?.id||''}" placeholder="0">
+        </div>
+        ${precio?`<div class="kpi-input-max">Precio: ${fmt(precio)} c/u${k.meta_periodo?` · Meta: ${k.meta_periodo}`:''}</div>`:'<div class="kpi-input-max" style="color:var(--amber)">Sin precio definido — se guardará la cantidad</div>'}
+      </div>`;
+    }
+  });
+  el.innerHTML=html;
+}
+
+async function guardarRegistro(){
+  const colabId=document.getElementById('f-colab').value;
+  const periodoId=document.getElementById('f-periodo').value;
+  const btn=document.getElementById('btn-guardar');
+  btn.disabled=true; btn.textContent='Guardando...';
+
+  const inputs=document.querySelectorAll('#kpi-inputs-admin input[data-kpi-id]');
+  const upserts=[];
+  inputs.forEach(inp=>{
+    const kpiId=inp.dataset.kpiId;
+    const tipo=inp.dataset.tipo;
+    const val=parseFloat(inp.value)||0;
+    const obj={colaborador_id:colabId,kpi_id:kpiId,periodo_id:periodoId};
+    if(tipo==='porcentaje') obj.cumplimiento_pct=val;
+    else obj.cantidad=val;
+    upserts.push(obj);
+  });
+
+  // Check existing registros to upsert properly
+  const {data:existing}=await sb.from('registros').select('id,kpi_id').eq('colaborador_id',colabId).eq('periodo_id',periodoId);
+  for(const u of upserts){
+    const ex=existing?.find(e=>e.kpi_id===u.kpi_id);
+    if(ex){ await sb.from('registros').update(u).eq('id',ex.id); }
+    else { await sb.from('registros').insert(u); }
+  }
+
+  btn.disabled=false; btn.textContent='Guardar';
+  showToast('✓ Registros guardados');
+  await renderAdminResumen();
+  if(selectedColabId===colabId) await renderColabView(colabId);
+}
+
+// ── ADMIN RESUMEN ──
+async function renderAdminResumen(){
+  if(!currentPeriodo) return;
+  document.getElementById('adm-period-label').textContent=fmtPeriodo(currentPeriodo);
+  const el=document.getElementById('adm-list');
+
+  const {data:allRegistros}=await sb.from('registros').select('*').eq('periodo_id',currentPeriodo.id);
+  const {data:allKpis}=await sb.from('kpis').select('*');
+
+  let grand=0;
+  let html='';
+  colaboradores.forEach((c,i)=>{
+    const kpis=allKpis?.filter(k=>k.colaborador_id===c.id)||[];
+    const regs=allRegistros?.filter(r=>r.colaborador_id===c.id)||[];
+    let total=0;
+
+    if(c.tipo==='A'){
+      let bono=0;
+      kpis.forEach(k=>{ const r=regs.find(x=>x.kpi_id===k.id); bono+=(c.pago_maximo*(k.peso_max/100))*((r?.cumplimiento_pct||0)/100); });
+      total=bono>c.pago_basal?bono:c.pago_basal;
+    } else if(c.tipo==='B'){ total=c.pago_basal;
+    } else if(c.tipo==='C'){ kpis.forEach(k=>{ const r=regs.find(x=>x.kpi_id===k.id); total+=(r?.cantidad||0)*(k.valor_unitario||0); });
+    } else if(c.tipo==='B+'){ total=c.pago_basal; kpis.forEach(k=>{ const r=regs.find(x=>x.kpi_id===k.id); total+=(r?.cantidad||0)*(k.valor_unitario||0); }); }
+
+    grand+=total;
+    html+=`<div class="collab-card-admin">
+      <div class="cca-left">
+        <div class="avatar ${avClass(i)}" style="width:38px;height:38px;font-size:13px">${initials(c.nombre)}</div>
+        <div><div class="cca-name">${c.nombre}</div><div class="cca-meta">${c.puesto||''} · Tipo ${c.tipo}</div></div>
+      </div>
+      <div><div class="cca-amount">${fmt(total)}</div><div class="cca-count">${kpis.length} KPIs</div></div>
+    </div>`;
+  });
+  el.innerHTML=html;
+  document.getElementById('adm-total').textContent=fmt(grand);
+}
+
+// ── TEAM ──
+async function renderTeam(){
+  const el=document.getElementById('team-list');
+  el.innerHTML=colaboradores.map((c,i)=>`
+    <div class="team-row">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="avatar ${avClass(i)}" style="width:38px;height:38px;font-size:13px">${initials(c.nombre)}</div>
+        <div><div style="font-size:14px;font-weight:600">${c.nombre}</div><div style="font-size:12px;color:var(--gray5)">${c.puesto||''}</div></div>
+      </div>
+      <span class="badge ${['badge-a','badge-b','badge-c','badge-bp'][['A','B','C','B+'].indexOf(c.tipo)]||'badge-b'}">Tipo ${c.tipo}</span>
+    </div>`).join('');
+}
+
+// ── CREAR COLABORADOR ──
+async function crearColaborador(){
+  const nombre=document.getElementById('new-nombre').value.trim();
+  const email=document.getElementById('new-email').value.trim();
+  const pass=document.getElementById('new-pass').value;
+  const puesto=document.getElementById('new-puesto').value.trim();
+  const tipo=document.getElementById('new-tipo').value;
+  const basal=parseFloat(document.getElementById('new-basal').value)||0;
+  const maximo=parseFloat(document.getElementById('new-maximo').value)||0;
+  if(!nombre||!email||!pass){ showToast('Completa todos los campos'); return; }
+
+  // Create auth user via admin (requires service role - show instructions instead)
+  const {data,error}=await sb.from('colaboradores').insert({nombre,puesto,tipo,pago_basal:basal,pago_maximo:maximo,activo:true});
+  if(error){ showToast('Error: '+error.message); return; }
+
+  showToast('✓ Colaborador agregado. Crea su acceso en Supabase Auth.');
+  document.getElementById('new-nombre').value='';
+  document.getElementById('new-email').value='';
+  document.getElementById('new-pass').value='';
+  document.getElementById('new-puesto').value='';
+
+  const {data:colabs}=await sb.from('colaboradores').select('*').eq('activo',true).order('nombre');
+  colaboradores=colabs||[];
+  renderChips();
+  await renderTeam();
+  populateAdminForm();
+}
+
+// ── MODE SWITCH ──
+function switchMode(m){
+  document.querySelectorAll('.seg-btn').forEach((b,i)=>b.classList.toggle('active',i===(m==='colab'?0:1)));
+  document.getElementById('screen-colab').classList.toggle('visible',m==='colab');
+  document.getElementById('screen-admin').classList.toggle('visible',m==='admin');
+  if(m==='admin'){ renderAdminResumen(); loadKpisForAdmin(); }
+}
+
+function switchAdminTab(tab,btn){
+  document.querySelectorAll('.admin-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.admin-panel').forEach(p=>p.classList.remove('visible'));
+  btn.classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('visible');
+  if(tab==='resumen') renderAdminResumen();
+  if(tab==='equipo') renderTeam();
+}
+
+// ── AUTO LOGIN CHECK ──
+sb.auth.getSession().then(({data:{session}})=>{ if(session) initApp(session.user); });
+</script>
+</body>
+</html>
