@@ -175,6 +175,7 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 
 .team-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--gray2)}
 .team-row:last-child{border-bottom:none}
+.resumen-section-title{font-size:16px;font-weight:700;letter-spacing:-.3px;color:var(--black);padding:16px 0 8px;border-bottom:2px solid var(--black);margin-bottom:8px}
 .resumen-group-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray5);padding:16px 0 8px;border-bottom:1px solid var(--gray2);margin-bottom:4px}
 
 .resumen-totales{
@@ -307,9 +308,20 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
               <div style="font-size:22px;font-weight:700;letter-spacing:-.5px">Resumen del período</div>
             </div>
             <div id="adm-list"><div class="loading">Cargando...</div></div>
-            <div class="total-banner">
-              <div class="tb-label">Total a pagar</div>
-              <div class="tb-amount" id="adm-total">$0</div>
+            <div class="resumen-totales">
+              <div class="rt-row">
+                <span class="rt-label">Total pagos basales</span>
+                <span class="rt-val" id="adm-basales">$0</span>
+              </div>
+              <div class="rt-row">
+                <span class="rt-label">Total diferenciación KPIs</span>
+                <span class="rt-val" style="color:var(--green)" id="adm-kpis">$0</span>
+              </div>
+              <div class="rt-divider"></div>
+              <div class="rt-row">
+                <span class="rt-label-total">Acumulado total a pagar</span>
+                <span class="rt-val-total" id="adm-total">$0</span>
+              </div>
             </div>
           </div>
 
@@ -499,6 +511,7 @@ async function initApp(user){
     selectedColabId=colaboradores[0]?.id;
     await renderColabView(selectedColabId);
     populateAdminForm();
+    await renderAdminResumen();
   }else{
     document.getElementById('sidebar').style.display='none';
     const colab=colaboradores.find(c=>c.user_id===user.id);
