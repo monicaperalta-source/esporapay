@@ -789,7 +789,10 @@ async function renderColabView(colabId){
     html+=`<div class="pago-row"><span class="pr-label">Acumulado por KPIs</span><span class="pr-val">${fmt(totalPago)}</span></div>`;
   }
   html+=`<div class="pago-row"><span class="pr-label" style="font-weight:600">Total a pagar</span><span class="pr-val total">${fmt(totalPago)}</span></div></div>`;
-  // Confirmación diaria
+  // Confirmación diaria — solo si el colaborador visto tiene user_id del usuario actual
+  const colabDelUsuario=colaboradores.find(c=>c.user_id===currentUser?.id);
+  const esPropio=colabDelUsuario?.id===colabId;
+  if(esPropio){
   const todayStr=new Date().toISOString().split('T')[0];
   const periodoFin=currentPeriodo?.fecha_fin;
   const esUltimoDia=periodoFin===todayStr;
@@ -824,6 +827,8 @@ async function renderColabView(colabId){
       </div>
     </div>`;
   }
+
+  } // end esPropio
 
   el.innerHTML=html;
   el.dataset.loaded='1';
