@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EsporaPay</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
 html,body{overflow-x:hidden;max-width:100%}
@@ -48,7 +49,7 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .sidebar::-webkit-scrollbar{display:none}
 @media(min-width:768px){.sidebar{display:block}}
 .side-group-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gray5);padding:12px 10px 5px;margin-top:4px}
-.side-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;cursor:pointer;transition:background .12s;margin-bottom:1px}
+.side-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;cursor:pointer;transition:background .12s;margin-bottom:1px;user-select:none;-webkit-user-select:none}
 .side-item:hover{background:var(--gray1)}
 .side-item.active{background:var(--gray1)}
 .side-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:9px;flex-shrink:0}
@@ -341,6 +342,16 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
                   <input type="checkbox" id="show-inactivos-resumen" onchange="renderAdminResumen()" style="cursor:pointer">
                   Ver inactivos
                 </label>
+                <div style="position:relative;margin-left:auto">
+                  <button id="btn-descargar-reporte" onclick="toggleReporteMenu()" style="display:flex;align-items:center;gap:6px;background:var(--black);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
+                    ↓ Descargar reporte
+                  </button>
+                  <div id="reporte-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--gray2);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden;z-index:100;min-width:180px">
+                    <button onclick="descargarReporte('excel')" style="display:block;width:100%;text-align:left;background:none;border:none;padding:12px 16px;font-size:13px;cursor:pointer;color:var(--black)" onmouseover="this.style.background='var(--gray1)'" onmouseout="this.style.background='none'">📊 Excel (.xlsx)</button>
+                    <button onclick="descargarReporte('pdf')" style="display:block;width:100%;text-align:left;background:none;border:none;padding:12px 16px;font-size:13px;cursor:pointer;color:var(--black);border-top:1px solid var(--gray1)" onmouseover="this.style.background='var(--gray1)'" onmouseout="this.style.background='none'">📄 PDF (imprimir)</button>
+                    <button onclick="descargarReporte('csv')" style="display:block;width:100%;text-align:left;background:none;border:none;padding:12px 16px;font-size:13px;cursor:pointer;color:var(--black);border-top:1px solid var(--gray1)" onmouseover="this.style.background='var(--gray1)'" onmouseout="this.style.background='none'">📋 CSV</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div id="adm-list"><div class="loading">Cargando...</div></div>
@@ -502,7 +513,7 @@ const GRUPO_ORDER=['Director','Gerente','Diseñador','Performance'];
 const BADGE_MAP={A:'badge-a',B:'badge-b',C:'badge-c','B+':'badge-bp'};
 const BADGE_LABEL={A:'Base + KPIs',B:'Base fija',C:'Solo entregables','B+':'Base + extras'};
 
-let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null,resumenPeriodoId=null;
+let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null,resumenPeriodoId=null,reportData=null;
 
 function fmt(n){return '$'+(Math.round(n||0)).toLocaleString('es-MX')}
 function initials(n){return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
@@ -1157,6 +1168,174 @@ async function renderAdminResumen(){
   document.getElementById('adm-total').textContent=fmt(grand);
   document.getElementById('adm-basales').textContent=fmt(totalBasales);
   document.getElementById('adm-kpis').textContent=fmt(totalKpis);
+
+  // Guardar datos para generación de reportes
+  const reportRows=[];
+  GRUPO_ORDER.forEach(g=>{
+    const gc=grouped[g]?.filter(c=>colabData[c.id])||[];
+    gc.forEach(c=>{
+      const d=colabData[c.id];
+      reportRows.push({grupo:gLabel(g),nombre:c.nombre,puesto:c.puesto||'',tipo:c.tipo,basal:d.basal,extra:d.extra,total:d.total});
+    });
+  });
+  reportData={periodo:periodoActual,rows:reportRows,totalBasales,totalKpis,grand,generado:new Date()};
+}
+
+// ===== REPORTES =====
+function toggleReporteMenu(){
+  const m=document.getElementById('reporte-menu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+// Cerrar el menú al hacer click fuera
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('reporte-menu');
+  const btn=document.getElementById('btn-descargar-reporte');
+  if(menu&&menu.style.display==='block'&&!menu.contains(e.target)&&e.target!==btn){menu.style.display='none';}
+});
+
+function reporteNombrePeriodo(){
+  if(!reportData?.periodo)return'periodo';
+  const f=new Date(reportData.periodo.fecha_fin+'T12:00:00');
+  return f.toLocaleDateString('es-MX',{month:'long',year:'numeric'}).replace(' ','_');
+}
+
+function descargarReporte(formato){
+  document.getElementById('reporte-menu').style.display='none';
+  if(!reportData||!reportData.rows.length){alert('No hay datos para exportar. Asegúrate de tener un período seleccionado.');return;}
+  if(formato==='excel')exportarExcel();
+  else if(formato==='csv')exportarCSV();
+  else if(formato==='pdf')exportarPDF();
+}
+
+function exportarExcel(){
+  if(typeof XLSX==='undefined'){alert('La librería de Excel no cargó. Revisa tu conexión e intenta de nuevo.');return;}
+  const MONEY='"$"#,##0';
+  const aoa=[['Colaborador','Pago basal','Diferenciación','Pago total']];
+  reportData.rows.forEach(r=>{
+    aoa.push([r.nombre,Math.round(r.basal),Math.round(r.extra),Math.round(r.total)]);
+  });
+  aoa.push(['TOTALES',Math.round(reportData.totalBasales),Math.round(reportData.totalKpis),Math.round(reportData.grand)]);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const lastRow=aoa.length;
+  // Aplicar formato de moneda a columnas B, C, D (índices 1,2,3) en filas de datos y total
+  for(let r=1;r<lastRow;r++){
+    ['B','C','D'].forEach(col=>{
+      const cell=ws[col+(r+1)];
+      if(cell){cell.t='n';cell.z=MONEY;}
+    });
+  }
+  ws['!cols']=[{wch:32},{wch:16},{wch:16},{wch:16}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Resumen de pago');
+  XLSX.writeFile(wb,`Reporte_nomina_${reporteNombrePeriodo()}.xlsx`);
+}
+
+function exportarCSV(){
+  let csv='Colaborador,Pago basal,Diferenciación,Pago total\n';
+  const esc=s=>`"${String(s).replace(/"/g,'""')}"`;
+  reportData.rows.forEach(r=>{
+    csv+=[esc(r.nombre),Math.round(r.basal),Math.round(r.extra),Math.round(r.total)].join(',')+'\n';
+  });
+  csv+=`"TOTALES",${Math.round(reportData.totalBasales)},${Math.round(reportData.totalKpis)},${Math.round(reportData.grand)}\n`;
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`Reporte_nomina_${reporteNombrePeriodo()}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportarPDF(){
+  const periodoTxt=reportData.periodo?fmtPeriodo(reportData.periodo):'';
+  const fechaGen=reportData.generado.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+  let filas='';
+  reportData.rows.forEach(r=>{
+    const extraTxt=r.extra>0?`<td class="num green">${fmt(r.extra)}</td>`:`<td class="num zero">—</td>`;
+    filas+=`<tr>
+      <td class="name">${r.nombre}</td>
+      <td class="num">${fmt(r.basal)}</td>
+      ${extraTxt}
+      <td class="num total">${fmt(r.total)}</td>
+    </tr>`;
+  });
+  filas+=`<tr class="tot-row">
+    <td class="lbl">Totales · ${reportData.rows.length} colaboradores</td>
+    <td class="num">${fmt(reportData.totalBasales)}</td>
+    <td class="num green">${fmt(reportData.totalKpis)}</td>
+    <td class="num total">${fmt(reportData.grand)}</td>
+  </tr>`;
+  const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte de nómina · EsporaPay</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--ink:#1d1d1f;--gray:#86868b;--line:#e8e8ed;--bg:#f5f5f7;--green:#1d8a45}
+    html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;
+      color:var(--ink);padding:56px 56px 40px;font-size:14px;line-height:1.5;
+      -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px}
+    .brand{font-size:15px;font-weight:600;letter-spacing:-.2px}
+    .brand span{color:var(--gray);font-weight:400}
+    .meta-top{text-align:right;font-size:12px;color:var(--gray);line-height:1.6}
+    h1{font-size:30px;font-weight:700;letter-spacing:-.8px;margin-bottom:6px}
+    .period{font-size:15px;color:var(--gray);margin-bottom:32px}
+    .hero{background:var(--bg);border-radius:20px;padding:28px 32px;margin-bottom:40px;
+      display:flex;justify-content:space-between;align-items:flex-end}
+    .hero-label{font-size:13px;color:var(--gray);font-weight:500;letter-spacing:.02em;margin-bottom:8px;text-transform:uppercase}
+    .hero-val{font-size:46px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+    .hero-side{text-align:right;font-size:13px;color:var(--gray);line-height:1.9}
+    .hero-side b{color:var(--ink);font-weight:600;margin-left:14px}
+    table{width:100%;border-collapse:collapse;margin-bottom:8px}
+    thead{display:table-header-group}
+    thead th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);
+      font-weight:600;text-align:right;padding:0 0 12px;border-bottom:1px solid var(--ink)}
+    thead th:first-child{text-align:left}
+    tbody tr{break-inside:avoid;page-break-inside:avoid}
+    td{padding:11px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+    .name{font-weight:500;font-size:14.5px}
+    .num{text-align:right;white-space:nowrap;font-weight:500}
+    .total{font-weight:700}
+    .green{color:var(--green)}
+    .zero{color:#c7c7cc}
+    tbody tr:last-child td{border-bottom:none}
+    .tot-row td{border-top:1px solid var(--ink);border-bottom:none;padding-top:16px;font-weight:700;font-size:15px}
+    .tot-row .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);font-weight:600}
+    .foot{margin-top:36px;padding-top:18px;color:#b0b0b5;font-size:11px;
+      display:flex;justify-content:space-between;border-top:1px solid var(--line)}
+    @page{margin:14mm 0}
+    @media print{body{padding:0 40px}.hero{break-inside:avoid;page-break-inside:avoid}}
+  </style></head><body>
+    <div class="head">
+      <div class="brand">EsporaPay <span>· Nómina</span></div>
+      <div class="meta-top">Generado el ${fechaGen}</div>
+    </div>
+    <h1>Reporte de nómina</h1>
+    <div class="period">${periodoTxt}</div>
+    <div class="hero">
+      <div>
+        <div class="hero-label">Acumulado total a pagar</div>
+        <div class="hero-val">${fmt(reportData.grand)}</div>
+      </div>
+      <div class="hero-side">
+        <div>Pagos basales <b>${fmt(reportData.totalBasales)}</b></div>
+        <div>Diferenciación <b style="color:var(--green)">${fmt(reportData.totalKpis)}</b></div>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Colaborador</th><th>Pago basal</th><th>Diferenciación</th><th>Pago total</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+    <div class="foot">
+      <span>EsporaPay · Documento generado automáticamente</span>
+      <span>${reportData.rows.length} colaboradores</span>
+    </div>
+  </body></html>`;
+  const w=window.open('','_blank');
+  if(!w){alert('Permite las ventanas emergentes para generar el PDF.');return;}
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>{w.focus();w.print();},400);
 }
 
 async function renderKpisTab(){
