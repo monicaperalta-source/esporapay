@@ -312,8 +312,8 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 
           <div class="admin-panel" id="panel-resumen">
             <div style="margin-bottom:20px">
-              <div style="font-size:13px;color:var(--gray4);margin-bottom:4px" id="adm-period-label"></div>
-              <div style="font-size:22px;font-weight:700;letter-spacing:-.5px">Resumen del período</div>
+              <div style="font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:12px">Resumen del período</div>
+              <select class="form-field" id="resumen-periodo-sel" onchange="cambiarPeriodoResumen()" style="max-width:320px"></select>
             </div>
             <div id="adm-list"><div class="loading">Cargando...</div></div>
             <div class="resumen-totales">
@@ -453,7 +453,7 @@ const GRUPO_ORDER=['Director','Gerente','Diseñador','Performance'];
 const BADGE_MAP={A:'badge-a',B:'badge-b',C:'badge-c','B+':'badge-bp'};
 const BADGE_LABEL={A:'Base + KPIs',B:'Base fija',C:'Solo entregables','B+':'Base + extras'};
 
-let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null;
+let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null,resumenPeriodoId=null;
 
 function fmt(n){return '$'+(Math.round(n||0)).toLocaleString('es-MX')}
 function initials(n){return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
@@ -720,8 +720,13 @@ async function renderColabView(colabId){
   }
 
   if(kpis?.length){
+    const sortedKpis=[...kpis].sort((a,b)=>{
+      const aExtra=a.nombre.toLowerCase().includes('extra');
+      const bExtra=b.nombre.toLowerCase().includes('extra');
+      return aExtra===bExtra?0:aExtra?1:-1;
+    });
     html+=`<div class="section-title">Avance de ${colab.tipo==='A'?'KPIs':'metas'}</div><div class="kpi-list">`;
-    kpis.forEach(k=>{
+    sortedKpis.forEach(k=>{
       const r=registros?.find(x=>x.kpi_id===k.id);
       if(k.tipo_kpi==='porcentaje'){
         const val=r?.cumplimiento_pct||0;
@@ -755,9 +760,9 @@ async function renderColabView(colabId){
   }else if(colab.tipo==='B+'){
     html+=`<div class="pago-row"><span class="pr-label">Pago basal</span><span class="pr-val">${fmt(colab.pago_basal)}</span></div>`;
     const ex=totalPago-colab.pago_basal;
-    if(ex>0)html+=`<div class="pago-row"><span class="pr-label">Estudios extra</span><span class="pr-val green">${fmt(ex)}</span></div>`;
+    if(ex>0)html+=`<div class="pago-row"><span class="pr-label">Acumulado por KPIs</span><span class="pr-val green">${fmt(ex)}</span></div>`;
   }else{
-    kpis?.forEach(k=>{const r=registros?.find(x=>x.kpi_id===k.id);const qty=r?.cantidad||0;const p=k.valor_unitario||0;if(qty>0)html+=`<div class="pago-row"><span class="pr-label">${k.nombre}</span><span class="pr-val">${fmt(qty*p)}</span></div>`});
+    html+=`<div class="pago-row"><span class="pr-label">Acumulado por KPIs</span><span class="pr-val">${fmt(totalPago)}</span></div>`;
   }
   html+=`<div class="pago-row"><span class="pr-label" style="font-weight:600">Total a pagar</span><span class="pr-val total">${fmt(totalPago)}</span></div></div>`;
   el.innerHTML=html;
@@ -769,7 +774,18 @@ async function renderColabView(colabId){
 function populateAdminForm(){
   document.getElementById('f-colab').innerHTML=colaboradores.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
   document.getElementById('f-periodo').innerHTML=periodos.map(p=>`<option value="${p.id}" ${p.activo?'selected':''}>${fmtPeriodo(p)}</option>`).join('');
+  // Populate resumen period selector
+  const resSel=document.getElementById('resumen-periodo-sel');
+  if(resSel){
+    resSel.innerHTML=periodos.map(p=>`<option value="${p.id}" ${p.activo?'selected':''}>${fmtPeriodo(p)}${p.activo?' · Actual':''}</option>`).join('');
+    resumenPeriodoId=currentPeriodo?.id;
+  }
   loadKpisForAdmin();
+}
+
+function cambiarPeriodoResumen(){
+  resumenPeriodoId=document.getElementById('resumen-periodo-sel').value;
+  renderAdminResumen();
 }
 
 function fmtPeriodo(p){
@@ -914,10 +930,11 @@ async function guardarRegistro(){
 }
 
 async function renderAdminResumen(){
-  if(!currentPeriodo)return;
-  document.getElementById('adm-period-label').textContent=fmtPeriodo(currentPeriodo);
+  const pid=resumenPeriodoId||currentPeriodo?.id;
+  if(!pid)return;
+  const periodoActual=periodos.find(p=>p.id===pid)||currentPeriodo;
   const[{data:allRegs},{data:allKpis}]=await Promise.all([
-    sb.from('registros').select('*').eq('periodo_id',currentPeriodo.id),
+    sb.from('registros').select('*').eq('periodo_id',pid),
     sb.from('kpis').select('*')
   ]);
   const grouped=sortedColabs();
