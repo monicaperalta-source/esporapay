@@ -570,7 +570,7 @@ async function renderColabView(colabId){
   let totalPago=0,diferenciacion=0,bonoBruto=0;
 
   if(colab.tipo==='A'){
-    kpis?.forEach(k=>{const r=registros?.find(x=>x.kpi_id===k.id);bonoBruto+=(colab.pago_maximo*(k.peso_max/100))*((r?.cumplimiento_pct||0)/100)});
+    kpis?.forEach(k=>{const r=registros?.find(x=>x.kpi_id===k.id);bonoBruto+=colab.pago_maximo*((r?.cumplimiento_pct||0)/100)});
     if(bonoBruto>colab.pago_basal){diferenciacion=bonoBruto-colab.pago_basal;totalPago=bonoBruto}
     else totalPago=colab.pago_basal;
   }else if(colab.tipo==='B'){totalPago=colab.pago_basal}
@@ -642,10 +642,13 @@ async function renderColabView(colabId){
     kpis.forEach(k=>{
       const r=registros?.find(x=>x.kpi_id===k.id);
       if(k.tipo_kpi==='porcentaje'){
-        const c=r?.cumplimiento_pct||0;const gan=(colab.pago_maximo*(k.peso_max/100))*(c/100);const cl=cc(c);
-        html+=`<div class="kpi-item"><div class="kpi-top"><span class="kpi-name">${k.nombre}</span><span class="kpi-meta">${k.peso_max}% del bono</span></div>
-          <div class="progress-wrap"><div class="progress-fill ${fillClass(c)}" style="width:${c}%"></div></div>
-          <div class="kpi-bottom"><span class="kpi-pct ${cl}">${c}%</span><span class="kpi-earned">Ganado: <strong>${fmt(gan)}</strong></span></div></div>`;
+        const val=r?.cumplimiento_pct||0;
+        const gan=colab.pago_maximo*(val/100);
+        const pctDePeso=k.peso_max>0?Math.round((val/k.peso_max)*100):0;
+        const cl=cc(pctDePeso);
+        html+=`<div class="kpi-item"><div class="kpi-top"><span class="kpi-name">${k.nombre}</span><span class="kpi-meta">${val}%</span></div>
+          <div class="progress-wrap"><div class="progress-fill ${fillClass(pctDePeso)}" style="width:${pctDePeso}%"></div></div>
+          <div class="kpi-bottom"><span class="kpi-pct ${cl}">${pctDePeso}% cumplido</span><span class="kpi-earned">Ganado: <strong>${fmt(gan)}</strong></span></div></div>`;
       }else{
         const qty=r?.cantidad||0;const precio=k.valor_unitario||0;const gan=qty*precio;
         const meta=k.meta_periodo;const pct=meta?Math.round((qty/meta)*100):null;const cl=pct!=null?cc(pct):'gray';
@@ -707,8 +710,8 @@ async function loadKpisForAdmin(){
     const r=registros?.find(x=>x.kpi_id===k.id);
     if(k.tipo_kpi==='porcentaje'){
       html+=`<div class="kpi-input-card"><div class="kpi-input-name">${k.nombre}</div>
-        <div class="kpi-input-row"><label>% cumplimiento</label><input type="number" min="0" max="100" step="0.1" value="${r?.cumplimiento_pct||0}" data-kpi-id="${k.id}" data-tipo="porcentaje"></div>
-        <div class="kpi-input-max">Peso: ${k.peso_max}% del bono</div></div>`;
+        <div class="kpi-input-row"><label>% logrado</label><input type="number" min="0" max="${k.peso_max}" step="0.1" value="${r?.cumplimiento_pct||0}" data-kpi-id="${k.id}" data-tipo="porcentaje" data-peso="${k.peso_max}"></div>
+        <div class="kpi-input-max">Ingresa de 0 a ${k.peso_max} · máximo del bono para este KPI</div></div>`;
     }else{
       html+=`<div class="kpi-input-card"><div class="kpi-input-name">${k.nombre}</div>
         <div class="kpi-input-row"><label>Cantidad</label><input type="number" min="0" step="1" value="${r?.cantidad||0}" data-kpi-id="${k.id}" data-tipo="fijo"></div>
@@ -763,13 +766,8 @@ function updateAdminPreview(){
   if(!preview)return;
   let bono=0;
   document.querySelectorAll('#kpi-inputs-admin input[data-tipo="porcentaje"]').forEach(inp=>{
-    const kpiId=inp.dataset.kpiId;
-    const kpiEl=document.querySelector(`#kpi-inputs-admin .kpi-input-card:has([data-kpi-id="${kpiId}"])`);
-    const pesoText=kpiEl?.querySelector('.kpi-input-max')?.textContent||'';
-    const pesoMatch=pesoText.match(/Peso: ([\d.,]+)%/);
-    const peso=pesoMatch?parseFloat(pesoMatch[1]):0;
-    const cumpl=parseFloat(inp.value)||0;
-    bono+=(colab.pago_maximo*(peso/100))*(cumpl/100);
+    const val=parseFloat(inp.value)||0;
+    bono+=colab.pago_maximo*(val/100);
   });
   const above=bono>=colab.pago_basal;
   const nowAbove=above&&!_prevAbove;
@@ -848,7 +846,7 @@ async function renderAdminResumen(){
     const regs=allRegs?.filter(r=>r.colaborador_id===c.id)||[];
     let basal=0,extra=0,total=0,bonoCal=0;
     if(c.tipo==='A'){
-      kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);bonoCal+=(c.pago_maximo*(k.peso_max/100))*((r?.cumplimiento_pct||0)/100)});
+      kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);bonoCal+=c.pago_maximo*((r?.cumplimiento_pct||0)/100)});
       basal=c.pago_basal;
       extra=bonoCal>c.pago_basal?bonoCal-c.pago_basal:0;
       total=bonoCal>c.pago_basal?bonoCal:c.pago_basal;
@@ -932,7 +930,7 @@ async function renderKpisTab(){
       const regs=allRegs?.filter(r=>r.colaborador_id===c.id)||[];
       let extra=0;
       if(c.tipo==='A'){
-        let b=0;kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);b+=(c.pago_maximo*(k.peso_max/100))*((r?.cumplimiento_pct||0)/100)});
+        let b=0;kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);b+=c.pago_maximo*((r?.cumplimiento_pct||0)/100)});
         extra=b>c.pago_basal?b-c.pago_basal:0;
       } else if(c.tipo==='C'||c.tipo==='B+'){
         kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);extra+=(r?.cantidad||0)*(k.valor_unitario||0)});
@@ -947,7 +945,7 @@ async function renderKpisTab(){
       const regs=allRegs?.filter(r=>r.colaborador_id===c.id)||[];
       let extra=0;
       if(c.tipo==='A'){
-        let b=0;kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);b+=(c.pago_maximo*(k.peso_max/100))*((r?.cumplimiento_pct||0)/100)});
+        let b=0;kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);b+=c.pago_maximo*((r?.cumplimiento_pct||0)/100)});
         extra=b>c.pago_basal?b-c.pago_basal:0;
       } else {
         kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);extra+=(r?.cantidad||0)*(k.valor_unitario||0)});
