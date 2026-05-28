@@ -522,7 +522,7 @@ const GRUPO_ORDER=['Director','Gerente','Diseñador','Performance'];
 const BADGE_MAP={A:'badge-a',B:'badge-b',C:'badge-c','B+':'badge-bp'};
 const BADGE_LABEL={A:'Base + KPIs',B:'Base fija',C:'Solo entregables','B+':'Base + extras'};
 
-let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null,resumenPeriodoId=null,reportData=null,confettiShownFor=null;
+let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null,resumenPeriodoId=null,reportData=null,confettiShownFor=null,realtimeChannel=null,rtDebounce=null;
 
 function fmt(n){return '$'+(Math.round(n||0)).toLocaleString('es-MX')}
 const TZ_MX='America/Mexico_City';
@@ -604,18 +604,36 @@ async function initApp(user){
   currentPeriodo=periodos.find(p=>p.activo)||periodos[0];
 
   // ── REALTIME ──
-  sb.channel('cambios')
-    .on('postgres_changes',{event:'*',schema:'public',table:'registros'},async(payload)=>{
-      if(payload.new?.colaborador_id===selectedColabId||payload.old?.colaborador_id===selectedColabId){
+  // Evitar canales duplicados si initApp corre más de una vez
+  if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
+
+  // Render con debounce: si llegan varios eventos seguidos, renderiza una sola vez
+  function scheduleRealtimeRender(affectsColabId){
+    clearTimeout(rtDebounce);
+    rtDebounce=setTimeout(async()=>{
+      const verColab=affectsColabId==null||affectsColabId===selectedColabId;
+      if(verColab && selectedColabId){
         await renderColabView(selectedColabId);
       }
-      if(document.getElementById('panel-resumen').classList.contains('visible')) await renderAdminResumen();
+      if(document.getElementById('panel-resumen')?.classList.contains('visible')){
+        await renderAdminResumen();
+      }
+    },250);
+  }
+
+  realtimeChannel=sb.channel('cambios')
+    .on('postgres_changes',{event:'*',schema:'public',table:'registros'},(payload)=>{
+      const cid=payload.new?.colaborador_id||payload.old?.colaborador_id;
+      scheduleRealtimeRender(cid);
     })
-    .on('postgres_changes',{event:'*',schema:'public',table:'colaboradores'},async()=>{
-      const{data:colabs}=await sb.from('colaboradores').select('*').eq('activo',true).order('nombre');
-      colaboradores=colabs||[];
-      if(isAdmin){renderSidebar();renderChipsMobile();populateAdminForm();}
-      await renderColabView(selectedColabId);
+    .on('postgres_changes',{event:'*',schema:'public',table:'colaboradores'},()=>{
+      clearTimeout(rtDebounce);
+      rtDebounce=setTimeout(async()=>{
+        const{data:colabs}=await sb.from('colaboradores').select('*').eq('activo',true).order('nombre');
+        colaboradores=colabs||[];
+        if(isAdmin){renderSidebar();renderChipsMobile();populateAdminForm();}
+        if(selectedColabId) await renderColabView(selectedColabId);
+      },250);
     })
     .subscribe();
 
@@ -1137,8 +1155,10 @@ async function guardarRegistro(){
   }
   btn.disabled=false;btn.textContent='Guardar registros';
   showToast('✓ Registros guardados');
+  // Render único e inmediato; cancela el render duplicado que el realtime agendaría
   await renderAdminResumen();
   if(selectedColabId===colabId)await renderColabView(colabId);
+  clearTimeout(rtDebounce);
 }
 
 async function renderAdminResumen(){
