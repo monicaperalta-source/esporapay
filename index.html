@@ -759,9 +759,8 @@ async function renderColabView(colabId){
   const el=document.getElementById('colab-content');
   const isFirstLoad=!el.dataset.loaded;
   if(isFirstLoad)el.innerHTML='<div class="loading">Cargando...</div>';
-  else el.style.opacity='.5';
   const colab=colaboradores.find(c=>c.id===colabId);
-  if(!colab){el.innerHTML='<div class="empty-state">No encontrado</div>';return}
+  if(!colab){el.innerHTML='<div class="empty-state">No encontrado</div>';el.dataset.loaded='';return}
 
   const[{data:kpis},{data:registros}]=await Promise.all([
     sb.from('kpis').select('*').eq('colaborador_id',colabId),
@@ -944,7 +943,13 @@ async function renderColabView(colabId){
 
   } // end esPropio
 
-  el.innerHTML=html;
+  // Solo repintar si el contenido cambió (evita parpadeo en eventos de realtime redundantes)
+  const changed = el.dataset.colab!==colabId || el.dataset.htmlHash!==html;
+  if(changed){
+    el.innerHTML=html;
+    el.dataset.htmlHash=html;
+    el.dataset.colab=colabId;
+  }
   el.dataset.loaded='1';
   el.style.opacity='';
   const confettiKey=`${colabId}|${currentPeriodo?.id}`;
