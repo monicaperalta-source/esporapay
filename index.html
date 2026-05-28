@@ -193,7 +193,10 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .toast.show{transform:translateX(-50%) translateY(0)}
 
 /* Apple hover animations */
-.side-item{transition:background .15s ease,transform .15s ease}
+.side-drag-handle{font-size:14px;color:var(--gray3);cursor:grab;padding-right:4px;flex-shrink:0;user-select:none}
+.side-drag-handle:active{cursor:grabbing}
+.side-item.drag-over{background:var(--gray2);transform:scale(1.02)}
+.side-item{transition:background .15s ease,transform .15s ease;cursor:pointer}
 .side-item:hover{background:var(--gray1);transform:translateX(2px)}
 .side-item.active{background:var(--gray1)}
 .chip{transition:all .2s cubic-bezier(.34,1.56,.64,1)}
@@ -457,7 +460,8 @@ function showToast(m){const t=document.getElementById('toast');t.textContent=m;t
 function sortedColabs(){
   const grouped={};
   GRUPO_ORDER.forEach(g=>grouped[g]=[]);
-  colaboradores.forEach(c=>{
+  const sorted=[...colaboradores].sort((a,b)=>(a.orden||0)-(b.orden||0));
+  sorted.forEach(c=>{
     const g=GRUPOS[c.nombre]||'Performance';
     if(!grouped[g])grouped[g]=[];
     grouped[g].push(c);
