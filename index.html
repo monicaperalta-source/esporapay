@@ -61,8 +61,7 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .main-inner{width:100%;max-width:620px}
 .no-sidebar .main{padding:40px}
 .no-sidebar .main-inner{max-width:780px}
-@media(max-width:767px){
-  .app-body{overflow-x:hidden}
+
   .main{padding:16px;overflow-x:hidden;width:100%}
   .main-inner{max-width:100%;overflow-x:hidden}
   .collab-name{font-size:17px}
@@ -201,6 +200,26 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .conf-sub{font-size:13px;color:var(--gray4);line-height:1.5}
 .conf-comment{font-size:13px;color:var(--gray4);font-style:italic;margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #c6f0d8}
 --red-dim:rgba(255,59,48,.1);
+
+@media(max-width:767px){
+  .app-body{overflow-x:hidden}
+  .main{padding:16px}
+  .main-inner{width:100%}
+  .balance-card{border-radius:16px;padding:20px 18px;margin:0 0 14px 0}
+  .bc-amount{font-size:34px}
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}
+  .stat-tile{padding:13px 12px}
+  .st-label{font-size:10px}
+  .st-val{font-size:17px}
+  .st-sub{font-size:10px}
+  .collab-name{font-size:17px}
+  .section-title{font-size:16px}
+  .kpi-item{padding:12px 14px}
+  .pago-row{padding:12px 14px}
+  .alerta-basal-bar{padding:12px 14px}
+  .conf-card{padding:16px}
+  .nav{padding:0 16px}
+}
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--black);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;pointer-events:none;white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0)}
 
@@ -727,14 +746,14 @@ async function renderColabView(colabId){
     const pctBasal=colab.pago_basal>0?Math.round((bonoBruto/colab.pago_basal)*100):0;
     html+=`<div class="stats-row">
       <div class="stat-tile ${alerta?'stat-tile-alert':superaBasal?'stat-tile-success':''}">
-        <div class="st-label">Pago basal</div>
+        <div class="st-label">Basal</div>
         <div class="st-val ${alerta?'text-red':superaBasal?'text-green':''}">${fmt(colab.pago_basal)}</div>
         <div class="st-sub">${alerta?'⚠️ No alcanzado':superaBasal?'✓ Superado':'garantizado'}</div>
       </div>
       <div class="stat-tile ${superaBasal?'stat-tile-success':''}">
-        <div class="st-label">Bono acumulado</div>
+        <div class="st-label">Bono</div>
         <div class="st-val ${alerta?'text-red':superaBasal?'text-green':''}">${fmt(bonoBruto)}</div>
-        <div class="st-sub">${alerta?`${pctBasal}% del basal`:superaBasal?`+${fmt(diferenciacion)} extra`:`de ${fmt(colab.pago_maximo)} máx · ${pct}%`}</div>
+        <div class="st-sub">${alerta?`${pctBasal}% del basal`:superaBasal?`+${fmt(diferenciacion)} extra`:`${pct}% avance`}</div>
       </div>
     </div>
     ${alerta?`<div class="alerta-basal-bar">
