@@ -200,6 +200,7 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .conf-title{font-size:15px;font-weight:600;color:var(--black);margin-bottom:4px}
 .conf-sub{font-size:13px;color:var(--gray4);line-height:1.5}
 .conf-comment{font-size:13px;color:var(--gray4);font-style:italic;margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #c6f0d8}
+--red-dim:rgba(255,59,48,.1);
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--black);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;pointer-events:none;white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0)}
 
@@ -320,7 +321,13 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
           <div class="admin-panel" id="panel-resumen">
             <div style="margin-bottom:20px">
               <div style="font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:12px">Resumen del período</div>
-              <select class="form-field" id="resumen-periodo-sel" onchange="cambiarPeriodoResumen()" style="max-width:320px"></select>
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <select class="form-field" id="resumen-periodo-sel" onchange="cambiarPeriodoResumen()" style="max-width:280px"></select>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--gray4);cursor:pointer;white-space:nowrap">
+                  <input type="checkbox" id="show-inactivos-resumen" onchange="renderAdminResumen()" style="cursor:pointer">
+                  Ver inactivos
+                </label>
+              </div>
             </div>
             <div id="adm-list"><div class="loading">Cargando...</div></div>
             <div class="resumen-totales">
@@ -353,6 +360,10 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
                   <select class="form-field" id="conf-periodo-sel" onchange="renderConfirmaciones()"></select>
                 </div>
               </div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--gray4);cursor:pointer;margin-top:10px">
+                <input type="checkbox" id="show-inactivos-conf" onchange="populateConfColabs()" style="cursor:pointer">
+                Incluir colaboradores inactivos
+              </label>
             </div>
             <div id="conf-list"><div class="loading">Cargando...</div></div>
           </div>
@@ -486,10 +497,14 @@ function cc(v){return v>=75?'green':v>=50?'amber':v>0?'red':'gray'}
 function fillClass(v){return v>=75?'fill-green':v>=50?'fill-amber':v>0?'fill-red':'fill-gray'}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400)}
 
-function sortedColabs(){
+let inactivos=[];
+
+function sortedColabs(){return sortedColabsFrom(colaboradores);}
+
+function sortedColabsFrom(list){
   const grouped={};
   GRUPO_ORDER.forEach(g=>grouped[g]=[]);
-  const sorted=[...colaboradores].sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const sorted=[...list].sort((a,b)=>(a.orden||0)-(b.orden||0));
   sorted.forEach(c=>{
     const g=GRUPOS[c.nombre]||'Performance';
     if(!grouped[g])grouped[g]=[];
@@ -517,10 +532,12 @@ async function initApp(user){
   document.getElementById('nav-user').textContent=user.email.split('@')[0];
   if(isAdmin)document.getElementById('admin-seg').style.display='flex';
 
-  const[{data:colabs},{data:pers}]=await Promise.all([
+  const[{data:colabs},{data:pers},{data:inact}]=await Promise.all([
     sb.from('colaboradores').select('*').eq('activo',true).order('nombre'),
-    sb.from('periodos').select('*').order('fecha_inicio',{ascending:false})
+    sb.from('periodos').select('*').order('fecha_inicio',{ascending:false}),
+    sb.from('colaboradores').select('*').eq('activo',false).order('nombre')
   ]);
+  inactivos=inact||[];
   colaboradores=colabs||[];
   periodos=pers||[];
   currentPeriodo=periodos.find(p=>p.activo)||periodos[0];
@@ -864,6 +881,16 @@ async function confirmarAcuerdo(colabId, periodoId, fechaHoy, conComentario){
   await renderColabView(colabId);
 }
 
+async function populateConfColabs(){
+  const showInact=document.getElementById('show-inactivos-conf')?.checked;
+  const lista=showInact?[...colaboradores,...inactivos]:colaboradores;
+  const sel=document.getElementById('conf-colab-sel');
+  if(sel){
+    sel.innerHTML=lista.map(c=>`<option value="${c.id}">${c.nombre}${!c.activo?' (inactivo)':''}</option>`).join('');
+    renderConfirmaciones();
+  }
+}
+
 function populateAdminForm(){
   document.getElementById('f-colab').innerHTML=colaboradores.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
   document.getElementById('f-periodo').innerHTML=periodos.map(p=>`<option value="${p.id}" ${p.activo?'selected':''}>${fmtPeriodo(p)}</option>`).join('');
@@ -1045,7 +1072,9 @@ async function renderAdminResumen(){
   const colabData={};
 
   // Calcular totales por colaborador
-  colaboradores.forEach(c=>{
+  const showInactivos=document.getElementById('show-inactivos-resumen')?.checked;
+  const colabsResumen=showInactivos?[...colaboradores,...(inactivos||[])]:colaboradores;
+  colabsResumen.forEach(c=>{
     const kpis=allKpis?.filter(k=>k.colaborador_id===c.id)||[];
     const regs=allRegs?.filter(r=>r.colaborador_id===c.id)||[];
     let basal=0,extra=0,total=0,bonoCal=0;
@@ -1244,6 +1273,21 @@ async function renderConfirmaciones(){
   el.innerHTML=html;
 }
 
+async function eliminarColaborador(id, nombre){
+  if(!confirm(`¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`))return;
+  const{error}=await sb.from('colaboradores').update({activo:false}).eq('id',id);
+  if(error){showToast('Error al eliminar');return}
+  showToast(`${nombre} eliminado`);
+  const{data:colabs}=await sb.from('colaboradores').select('*').eq('activo',true).order('nombre');
+  colaboradores=colabs||[];
+  renderSidebar();
+  renderChipsMobile();
+  renderTeam();
+  populateAdminForm();
+  if(selectedColabId===id) selectedColabId=colaboradores[0]?.id;
+  if(selectedColabId) await renderColabView(selectedColabId);
+}
+
 async function renderTeam(){
   const grouped=sortedColabs();
   let html='';
@@ -1258,7 +1302,10 @@ async function renderTeam(){
           <div class="avatar ${avClass(idx)}" style="width:36px;height:36px;font-size:12px">${initials(c.nombre)}</div>
           <div><div style="font-size:14px;font-weight:600">${c.nombre}</div><div style="font-size:12px;color:var(--gray5)">${c.puesto||''}</div></div>
         </div>
-        <span class="badge ${BADGE_MAP[c.tipo]||'badge-b'}">${BADGE_LABEL[c.tipo]||c.tipo}</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="badge ${BADGE_MAP[c.tipo]||'badge-b'}">${BADGE_LABEL[c.tipo]||c.tipo}</span>
+          <button onclick="eliminarColaborador('${c.id}','${c.nombre}')" style="background:none;border:none;cursor:pointer;color:var(--gray5);font-size:18px;padding:4px;border-radius:6px;transition:all .15s" onmouseover="this.style.color='var(--red)';this.style.background='var(--red-dim)'" onmouseout="this.style.color='var(--gray5)';this.style.background='none'" title="Eliminar colaborador">✕</button>
+        </div>
       </div>`;
     });
   });
