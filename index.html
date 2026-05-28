@@ -198,7 +198,8 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
   .main-inner{width:100%;max-width:100%;box-sizing:border-box}
   .balance-card{border-radius:16px;padding:20px 18px;margin:0 0 14px 0;width:100%;box-sizing:border-box}
   .bc-amount{font-size:34px}
-  .stats-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:16px;width:100%;box-sizing:border-box}
+  .stats-row,.no-sidebar .stats-row{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;gap:8px;margin-bottom:16px;width:100% !important;box-sizing:border-box}
+  .stat-tile{width:auto !important;min-width:0;box-sizing:border-box}
   .stat-tile{padding:13px 12px;box-sizing:border-box}
   .st-label{font-size:10px}
   .st-val{font-size:17px}
