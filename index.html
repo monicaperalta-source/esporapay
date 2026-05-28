@@ -92,9 +92,9 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .bc-amount sup{font-size:20px;font-weight:500;vertical-align:super;opacity:.5;letter-spacing:0}
 .bc-period{font-size:12px;color:rgba(255,255,255,.3);margin-top:12px}
 
-.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;width:100%}
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;width:100%;box-sizing:border-box}
 .no-sidebar .stats-row{grid-template-columns:repeat(3,1fr)}
-.stat-tile{background:var(--gray1);border-radius:14px;padding:14px;min-width:0;overflow:hidden}
+.stat-tile{background:var(--gray1);border-radius:14px;padding:14px;min-width:0;overflow:hidden;box-sizing:border-box;width:100%}
 .st-label{font-size:10px;color:var(--gray4);text-transform:uppercase;letter-spacing:.04em;font-weight:500;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-val{font-size:18px;font-weight:700;letter-spacing:-.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-sub{font-size:11px;color:var(--gray5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
