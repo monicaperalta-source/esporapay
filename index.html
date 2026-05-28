@@ -177,6 +177,17 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .team-row:last-child{border-bottom:none}
 .resumen-group-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray5);padding:16px 0 8px;border-bottom:1px solid var(--gray2);margin-bottom:4px}
 
+.resumen-totales{
+  background:var(--gray1);border-radius:16px;padding:20px;margin-top:24px;
+  border:1px solid var(--gray2);
+}
+.rt-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0}
+.rt-label{font-size:14px;color:var(--gray4)}
+.rt-val{font-size:15px;font-weight:600;color:var(--black)}
+.rt-val.green{color:var(--green)}
+.rt-divider{border:none;border-top:1.5px solid var(--gray2);margin:8px 0}
+.rt-label-total{font-size:15px;font-weight:700;color:var(--black)}
+.rt-val-total{font-size:20px;font-weight:700;color:var(--black)}
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--black);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;pointer-events:none;white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0)}
 
@@ -815,7 +826,7 @@ async function renderAdminResumen(){
     sb.from('kpis').select('*')
   ]);
   const grouped=sortedColabs();
-  let grand=0,html='';
+  let grand=0,totalBasales=0,totalKpis=0,html='';
   GRUPO_ORDER.forEach(g=>{
     if(!grouped[g]?.length)return;
     const rLabel={Director:'Directores',Gerente:'Gerentes',Diseñador:'Diseñadores',Performance:'Performance'}[g]||g;
@@ -824,24 +835,40 @@ async function renderAdminResumen(){
       const kpis=allKpis?.filter(k=>k.colaborador_id===c.id)||[];
       const regs=allRegs?.filter(r=>r.colaborador_id===c.id)||[];
       let total=0;
-      if(c.tipo==='A'){let b=0;kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);b+=(c.pago_maximo*(k.peso_max/100))*((r?.cumplimiento_pct||0)/100)});total=b>c.pago_basal?b:c.pago_basal}
-      else if(c.tipo==='B')total=c.pago_basal;
-      else if(c.tipo==='C')kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);total+=(r?.cantidad||0)*(k.valor_unitario||0)});
-      else if(c.tipo==='B+'){total=c.pago_basal;kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);total+=(r?.cantidad||0)*(k.valor_unitario||0)})}
+      let bonoCal=0;
+      if(c.tipo==='A'){
+        kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);bonoCal+=(c.pago_maximo*(k.peso_max/100))*((r?.cumplimiento_pct||0)/100)});
+        total=bonoCal>c.pago_basal?bonoCal:c.pago_basal;
+        totalBasales+=c.pago_basal;
+        if(bonoCal>c.pago_basal)totalKpis+=(bonoCal-c.pago_basal);
+      } else if(c.tipo==='B'){
+        total=c.pago_basal;totalBasales+=c.pago_basal;
+      } else if(c.tipo==='C'){
+        kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);total+=(r?.cantidad||0)*(k.valor_unitario||0)});
+        totalKpis+=total;
+      } else if(c.tipo==='B+'){
+        total=c.pago_basal;
+        kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);total+=(r?.cantidad||0)*(k.valor_unitario||0)});
+        totalBasales+=c.pago_basal;
+        totalKpis+=(total-c.pago_basal);
+      }
       grand+=total;
       const idx=colaboradores.findIndex(x=>x.id===c.id);
       let bono=0;
       if(c.tipo==='A'){kpis.forEach(k=>{const r=regs.find(x=>x.kpi_id===k.id);bono+=(c.pago_maximo*(k.peso_max/100))*((r?.cumplimiento_pct||0)/100)})}
       const resumenAlerta=c.tipo==='A' && bono<c.pago_basal;
+      const kpisCount=kpis.length;
       html+=`<div class="collab-card-admin ${resumenAlerta?'collab-card-alert':''}">
         <div class="cca-left"><div class="avatar ${avClass(idx)}" style="width:36px;height:36px;font-size:12px">${initials(c.nombre)}</div>
         <div><div class="cca-name ${resumenAlerta?'text-red':''}">${resumenAlerta?'⚠️ ':''} ${c.nombre}</div><div class="cca-meta">${c.puesto||''}</div></div></div>
-        <div><div class="cca-amount ${resumenAlerta?'text-red':''}">${fmt(total)}</div><div class="cca-count ${resumenAlerta?'text-red':''}">${resumenAlerta?'No alcanzó basal':'${kpis.length} KPIs'}</div></div>
+        <div><div class="cca-amount ${resumenAlerta?'text-red':''}">${fmt(total)}</div><div class="cca-count ${resumenAlerta?'text-red':''}">${resumenAlerta?'No alcanzó basal':kpisCount+' KPIs'}</div></div>
       </div>`;
     });
   });
   document.getElementById('adm-list').innerHTML=html;
   document.getElementById('adm-total').textContent=fmt(grand);
+  document.getElementById('adm-basales').textContent=fmt(totalBasales);
+  document.getElementById('adm-kpis').textContent=fmt(totalKpis);
 }
 
 async function renderTeam(){
