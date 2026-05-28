@@ -194,6 +194,12 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .rt-divider{border:none;border-top:1.5px solid var(--gray2);margin:8px 0}
 .rt-label-total{font-size:15px;font-weight:700;color:var(--black)}
 .rt-val-total{font-size:20px;font-weight:700;color:var(--black)}
+.conf-card{background:var(--gray1);border-radius:16px;padding:20px;margin-bottom:24px;border:1.5px solid var(--gray2)}
+.conf-card.conf-ok{background:#f0faf3;border-color:#c6f0d8}
+.conf-icon{font-size:28px;margin-bottom:10px}
+.conf-title{font-size:15px;font-weight:600;color:var(--black);margin-bottom:4px}
+.conf-sub{font-size:13px;color:var(--gray4);line-height:1.5}
+.conf-comment{font-size:13px;color:var(--gray4);font-style:italic;margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #c6f0d8}
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--black);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;pointer-events:none;white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0)}
 
@@ -765,10 +771,74 @@ async function renderColabView(colabId){
     html+=`<div class="pago-row"><span class="pr-label">Acumulado por KPIs</span><span class="pr-val">${fmt(totalPago)}</span></div>`;
   }
   html+=`<div class="pago-row"><span class="pr-label" style="font-weight:600">Total a pagar</span><span class="pr-val total">${fmt(totalPago)}</span></div></div>`;
+  // Confirmación diaria
+  const todayStr=new Date().toISOString().split('T')[0];
+  const periodoFin=currentPeriodo?.fecha_fin;
+  const esUltimoDia=periodoFin===todayStr;
+  const{data:conf}=await sb.from('confirmaciones').select('*')
+    .eq('colaborador_id',colabId).eq('fecha',todayStr).maybeSingle();
+
+  const confTitle=esUltimoDia
+    ?'¿Confirmas el período completo?'
+    :'¿Estás de acuerdo con tu información de hoy?';
+  const confBtn=esUltimoDia?'✓ Confirmo el período completo':'✓ Confirmo mi acuerdo del día';
+
+  if(conf?.confirmado){
+    html+=`<div class="conf-card conf-ok">
+      <div class="conf-icon">${esUltimoDia?'🏁':'✅'}</div>
+      <div>
+        <div class="conf-title">${esUltimoDia?'Período confirmado':'Confirmado hoy'}</div>
+        <div class="conf-sub">Registrado el ${new Date(conf.fecha_confirmacion).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})} a las ${new Date(conf.fecha_confirmacion).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</div>
+        ${conf.comentario?`<div class="conf-comment">"${conf.comentario}"</div>`:''}
+      </div>
+    </div>`;
+  } else {
+    html+=`<div class="conf-card">
+      <div class="conf-title">${confTitle}</div>
+      <div class="conf-sub">Solo puedes confirmar una vez al día. Quedará registrado con fecha y hora.</div>
+      <button class="btn-apple" style="margin-top:14px" onclick="confirmarAcuerdo('${colabId}','${currentPeriodo?.id}','${todayStr}',false)">${confBtn}</button>
+      <div id="discrepancia-toggle-${colabId}" style="margin-top:10px;text-align:center">
+        <span style="font-size:13px;color:var(--blue);cursor:pointer;font-weight:500" onclick="toggleDiscrepancia('${colabId}')">Tengo una duda o discrepancia</span>
+      </div>
+      <div id="discrepancia-form-${colabId}" style="display:none;margin-top:12px">
+        <textarea id="discrepancia-text-${colabId}" class="form-field" rows="3" placeholder="Describe tu duda o discrepancia..." style="resize:none;font-size:14px"></textarea>
+        <button class="btn-apple" style="margin-top:8px;background:var(--gray4)" onclick="confirmarAcuerdo('${colabId}','${currentPeriodo?.id}','${todayStr}',true)">Enviar comentario</button>
+      </div>
+    </div>`;
+  }
+
   el.innerHTML=html;
   el.dataset.loaded='1';
   el.style.opacity='';
   if(superaBasal) setTimeout(launchPageConfetti, 300);
+}
+
+function toggleDiscrepancia(colabId){
+  const form=document.getElementById('discrepancia-form-'+colabId);
+  const toggle=document.getElementById('discrepancia-toggle-'+colabId);
+  if(form.style.display==='none'){
+    form.style.display='block';
+    toggle.querySelector('span').textContent='Cancelar';
+  } else {
+    form.style.display='none';
+    toggle.querySelector('span').textContent='Tengo una duda o discrepancia';
+  }
+}
+
+async function confirmarAcuerdo(colabId, periodoId, fechaHoy, conComentario){
+  const comentario=conComentario?document.getElementById('discrepancia-text-'+colabId)?.value?.trim():'';
+  if(conComentario&&!comentario){showToast('Escribe tu comentario');return}
+  const{error}=await sb.from('confirmaciones').upsert({
+    colaborador_id:colabId,
+    periodo_id:periodoId,
+    fecha:fechaHoy,
+    confirmado:true,
+    comentario:comentario||null,
+    fecha_confirmacion:new Date().toISOString()
+  },{onConflict:'colaborador_id,fecha'});
+  if(error){showToast('Error al guardar: '+error.message);return}
+  showToast(conComentario?'💬 Comentario enviado':'✅ Confirmación registrada');
+  await renderColabView(colabId);
 }
 
 function populateAdminForm(){
@@ -933,9 +1003,10 @@ async function renderAdminResumen(){
   const pid=resumenPeriodoId||currentPeriodo?.id;
   if(!pid)return;
   const periodoActual=periodos.find(p=>p.id===pid)||currentPeriodo;
-  const[{data:allRegs},{data:allKpis}]=await Promise.all([
+  const[{data:allRegs},{data:allKpis},{data:allConfs}]=await Promise.all([
     sb.from('registros').select('*').eq('periodo_id',pid),
-    sb.from('kpis').select('*')
+    sb.from('kpis').select('*'),
+    sb.from('confirmaciones').select('*').eq('periodo_id',pid).eq('fecha',new Date().toISOString().split('T')[0])
   ]);
   const grouped=sortedColabs();
   let grand=0,totalBasales=0,totalKpis=0;
@@ -1018,7 +1089,8 @@ async function renderKpisTab(){
   document.getElementById('kpis-period-label').textContent=fmtPeriodo(currentPeriodo);
   const[{data:allRegs},{data:allKpis}]=await Promise.all([
     sb.from('registros').select('*').eq('periodo_id',currentPeriodo.id),
-    sb.from('kpis').select('*')
+    sb.from('kpis').select('*'),
+    sb.from('confirmaciones').select('*').eq('periodo_id',pid).eq('fecha',new Date().toISOString().split('T')[0])
   ]);
   const grouped=sortedColabs();
   const gLabel=g=>({Director:'Directores',Gerente:'Gerentes',Diseñador:'Diseñadores',Performance:'Performance'}[g]||g);
