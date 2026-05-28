@@ -192,11 +192,8 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
   .main-inner{width:100%}
   .balance-card{border-radius:16px;padding:20px 18px;margin:0 0 14px 0}
   .bc-amount{font-size:34px}
-  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}
+  .stats-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:20px}
   .stat-tile{padding:13px 12px}
-  .st-label{white-space:nowrap}
-  .st-val{white-space:nowrap}
-  .st-sub{white-space:nowrap}
   .st-label{font-size:10px}
   .st-val{font-size:17px}
   .st-sub{font-size:10px}
@@ -739,7 +736,7 @@ async function renderColabView(colabId){
         <div class="st-sub">${alerta?'⚠️ No alcanzado':superaBasal?'✓ Superado':'garantizado'}</div>
       </div>
       <div class="stat-tile ${superaBasal?'stat-tile-success':''}">
-        <div class="st-label">Bono</div>
+        <div class="st-label">KPIs</div>
         <div class="st-val ${alerta?'text-red':superaBasal?'text-green':''}">${fmt(bonoBruto)}</div>
         <div class="st-sub">${alerta?`${pctBasal}% del basal`:superaBasal?`+${fmt(diferenciacion)}`:`${pct}% avance`}</div>
       </div>
