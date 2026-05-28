@@ -558,7 +558,7 @@ async function renderColabView(colabId){
 
   const noLlegoBasal = colab.tipo==='A' && bonoBruto < colab.pago_basal && bonoBruto > 0;
   const sinActividad = colab.tipo==='A' && bonoBruto === 0;
-  const superaBasal = colab.tipo==='A' && bonoBruto >= colab.pago_basal && bonoBruto > 0;
+  const superaBasal = colab.tipo==='A' && bonoBruto > colab.pago_basal;
   const alerta = noLlegoBasal || sinActividad;
 
   let html=`
