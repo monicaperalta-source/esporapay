@@ -187,23 +187,27 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 --red-dim:rgba(255,59,48,.1);
 
 @media(max-width:767px){
-  .app-body{overflow-x:hidden}
-  .main{padding:16px;display:block}
-  .main-inner{width:100%;max-width:100%}
-  .balance-card{border-radius:16px;padding:20px 18px;margin:0 0 14px 0}
+  .app-body{display:block;overflow-x:hidden}
+  .sidebar{display:none!important}
+  .main{padding:16px;display:block;width:100%;flex:none}
+  .main-inner{width:100%;max-width:100%;box-sizing:border-box}
+  .balance-card{border-radius:16px;padding:20px 18px;margin:0 0 14px 0;width:100%;box-sizing:border-box}
   .bc-amount{font-size:34px}
-  .stats-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:20px}
-  .stat-tile{padding:13px 12px}
+  .stats-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:16px;width:100%;box-sizing:border-box}
+  .stat-tile{padding:13px 12px;box-sizing:border-box}
   .st-label{font-size:10px}
   .st-val{font-size:17px}
   .st-sub{font-size:10px}
   .collab-name{font-size:17px}
   .section-title{font-size:16px}
+  .kpi-list{width:100%;box-sizing:border-box}
   .kpi-item{padding:12px 14px}
+  .pago-tile{width:100%;box-sizing:border-box}
   .pago-row{padding:12px 14px}
-  .alerta-basal-bar{padding:12px 14px}
-  .conf-card{padding:16px}
+  .alerta-basal-bar{padding:12px 14px;width:100%;box-sizing:border-box}
+  .conf-card{padding:16px;width:100%;box-sizing:border-box}
   .nav{padding:0 16px}
+  .chip-scroll-mobile{display:flex}
 }
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--black);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;pointer-events:none;white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0)}
