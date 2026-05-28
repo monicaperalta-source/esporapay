@@ -189,7 +189,7 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 @media(max-width:767px){
   .app-body{overflow-x:hidden}
   .main{padding:16px}
-  .main-inner{width:100%}
+  .main-inner{width:100%;max-width:100%}
   .balance-card{border-radius:16px;padding:20px 18px;margin:0 0 14px 0}
   .bc-amount{font-size:34px}
   .stats-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:20px}
@@ -236,11 +236,11 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 
 /* Alert & Success styles */
 .balance-card-success{background:linear-gradient(135deg,#1b5e20,#34c759) !important}
-.stat-tile-success{background:#f0faf3;outline:1.5px solid #c6f0d8}
+.stat-tile-success{background:#f0faf3;border:1.5px solid #c6f0d8}
 .text-green{color:var(--green) !important}
 /* Alert styles */
 .balance-card-alert{background:linear-gradient(135deg,#c0392b,#e74c3c) !important}
-.stat-tile-alert{background:#fff2f2;outline:1.5px solid #ffd0d0}
+.stat-tile-alert{background:#fff2f2;border:1.5px solid #ffd0d0}
 .text-red{color:var(--red) !important}
 .alerta-basal-bar{background:#fff2f2;border:1.5px solid #ffd0d0;border-radius:14px;padding:14px 16px;margin-bottom:20px}
 .alerta-basal-label{display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px}
