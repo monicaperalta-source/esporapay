@@ -194,6 +194,9 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
   .bc-amount{font-size:34px}
   .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}
   .stat-tile{padding:13px 12px}
+  .st-label{white-space:nowrap}
+  .st-val{white-space:nowrap}
+  .st-sub{white-space:nowrap}
   .st-label{font-size:10px}
   .st-val{font-size:17px}
   .st-sub{font-size:10px}
@@ -731,14 +734,14 @@ async function renderColabView(colabId){
     const pctBasal=colab.pago_basal>0?Math.round((bonoBruto/colab.pago_basal)*100):0;
     html+=`<div class="stats-row">
       <div class="stat-tile ${alerta?'stat-tile-alert':superaBasal?'stat-tile-success':''}">
-        <div class="st-label">Basal</div>
+        <div class="st-label">Pago basal</div>
         <div class="st-val ${alerta?'text-red':superaBasal?'text-green':''}">${fmt(colab.pago_basal)}</div>
         <div class="st-sub">${alerta?'⚠️ No alcanzado':superaBasal?'✓ Superado':'garantizado'}</div>
       </div>
       <div class="stat-tile ${superaBasal?'stat-tile-success':''}">
         <div class="st-label">Bono</div>
         <div class="st-val ${alerta?'text-red':superaBasal?'text-green':''}">${fmt(bonoBruto)}</div>
-        <div class="st-sub">${alerta?`${pctBasal}% del basal`:superaBasal?`+${fmt(diferenciacion)} extra`:`${pct}% avance`}</div>
+        <div class="st-sub">${alerta?`${pctBasal}% del basal`:superaBasal?`+${fmt(diferenciacion)}`:`${pct}% avance`}</div>
       </div>
     </div>
     ${alerta?`<div class="alerta-basal-bar">
