@@ -498,8 +498,10 @@ async function initApp(user){
 
   // ── REALTIME ──
   sb.channel('cambios')
-    .on('postgres_changes',{event:'*',schema:'public',table:'registros'},async()=>{
-      await renderColabView(selectedColabId);
+    .on('postgres_changes',{event:'*',schema:'public',table:'registros'},async(payload)=>{
+      if(payload.new?.colaborador_id===selectedColabId||payload.old?.colaborador_id===selectedColabId){
+        await renderColabView(selectedColabId);
+      }
       if(document.getElementById('panel-resumen').classList.contains('visible')) await renderAdminResumen();
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'colaboradores'},async()=>{
@@ -629,7 +631,9 @@ async function selectColab(id){
 
 async function renderColabView(colabId){
   const el=document.getElementById('colab-content');
-  el.innerHTML='<div class="loading">Cargando...</div>';
+  const isFirstLoad=!el.dataset.loaded;
+  if(isFirstLoad)el.innerHTML='<div class="loading">Cargando...</div>';
+  else el.style.opacity='.5';
   const colab=colaboradores.find(c=>c.id===colabId);
   if(!colab){el.innerHTML='<div class="empty-state">No encontrado</div>';return}
 
@@ -751,6 +755,8 @@ async function renderColabView(colabId){
   }
   html+=`<div class="pago-row"><span class="pr-label" style="font-weight:600">Total a pagar</span><span class="pr-val total">${fmt(totalPago)}</span></div></div>`;
   el.innerHTML=html;
+  el.dataset.loaded='1';
+  el.style.opacity='';
   if(superaBasal) setTimeout(launchPageConfetti, 300);
 }
 
