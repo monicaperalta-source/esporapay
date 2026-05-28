@@ -525,8 +525,33 @@ const BADGE_LABEL={A:'Base + KPIs',B:'Base fija',C:'Solo entregables','B+':'Base
 let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null,resumenPeriodoId=null,reportData=null,confettiShownFor=null;
 
 function fmt(n){return '$'+(Math.round(n||0)).toLocaleString('es-MX')}
-function localDateStr(d){const x=d||new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
-function esFinDeSemana(d){const dow=d.getDay();return dow===0||dow===6}
+const TZ_MX='America/Mexico_City';
+// Fecha YYYY-MM-DD en hora de México (centro), sin importar la zona del dispositivo
+function localDateStr(d){
+  const x=d||new Date();
+  const p=new Intl.DateTimeFormat('en-CA',{timeZone:TZ_MX,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(x);
+  const get=t=>p.find(o=>o.type===t).value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+// Hora (0-23) en hora de México
+function mxHour(d){
+  const x=d||new Date();
+  return parseInt(new Intl.DateTimeFormat('en-US',{timeZone:TZ_MX,hour:'2-digit',hour12:false}).format(x),10)%24;
+}
+// Minutos desde medianoche en hora de México
+function mxMinutesOfDay(d){
+  const x=d||new Date();
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:TZ_MX,hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(x);
+  const h=parseInt(parts.find(o=>o.type==='hour').value,10)%24;
+  const m=parseInt(parts.find(o=>o.type==='minute').value,10);
+  return h*60+m;
+}
+// Día de la semana en hora de México (0=domingo..6=sábado)
+function mxWeekday(d){
+  const wd=new Intl.DateTimeFormat('en-US',{timeZone:TZ_MX,weekday:'short'}).format(d);
+  return {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6}[wd];
+}
+function esFinDeSemana(d){const dow=mxWeekday(d);return dow===0||dow===6}
 function initials(n){return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 function avClass(i){return AV[i%AV.length]}
 function cc(v){return v>=75?'green':v>=50?'amber':v>0?'red':'gray'}
@@ -852,16 +877,16 @@ async function renderColabView(colabId){
   const{data:conf}=await sb.from('confirmaciones').select('*')
     .eq('colaborador_id',colabId).eq('fecha',todayStr).maybeSingle();
 
-  const HORA_LIMITE=16; // 4:00 PM
+  const HORA_LIMITE=16; // 4:00 PM hora de México
   const ahora=new Date();
-  const pasoLimite=ahora.getHours()>=HORA_LIMITE;
-  // Minutos restantes hasta las 4pm de hoy
-  const limiteHoy=new Date(ahora);limiteHoy.setHours(HORA_LIMITE,0,0,0);
-  const minsRestantes=Math.max(0,Math.round((limiteHoy-ahora)/60000));
+  const minutosAhora=mxMinutesOfDay(ahora);
+  const pasoLimite=minutosAhora>=HORA_LIMITE*60;
+  // Minutos restantes hasta las 4pm (hora de México)
+  const minsRestantes=Math.max(0,HORA_LIMITE*60-minutosAhora);
   const hRest=Math.floor(minsRestantes/60),mRest=minsRestantes%60;
   const cuentaRegresiva=hRest>0?`Faltan ${hRest} h ${mRest} min`:`Faltan ${mRest} min`;
-  // ¿La confirmación existente fue tardía? (se hizo a las 4pm o después)
-  const confFueTardia=conf?.confirmado && new Date(conf.fecha_confirmacion).getHours()>=HORA_LIMITE;
+  // ¿La confirmación existente fue tardía? (se hizo a las 4pm o después, hora de México)
+  const confFueTardia=conf?.confirmado && mxHour(new Date(conf.fecha_confirmacion))>=HORA_LIMITE;
 
   const confTitle=esUltimoDia
     ?'¿Confirmas el período completo?'
@@ -1464,13 +1489,13 @@ async function renderConfirmaciones(){
   days.forEach(d=>{
     const dateStr=localDateStr(d);
     const conf=confMap[dateStr];
-    const label=d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+    const label=d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',timeZone:TZ_MX});
     const isToday=dateStr===todayStr;
 
     if(conf?.confirmado){
       const hConf=new Date(conf.fecha_confirmacion);
       const hora=hConf.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-      const fueTardia=hConf.getHours()>=16;
+      const fueTardia=mxHour(hConf)>=16;
       html+=`<div class="kpi-item">
         <div class="kpi-top">
           <span class="kpi-name" style="text-transform:capitalize">${label}${isToday?' · Hoy':''}</span>
