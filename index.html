@@ -186,6 +186,15 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .conf-title{font-size:15px;font-weight:600;color:var(--black);margin-bottom:4px}
 .conf-sub{font-size:13px;color:var(--gray4);line-height:1.5}
 .conf-comment{font-size:13px;color:var(--gray4);font-style:italic;margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #c6f0d8}
+.conf-reminder{display:flex;align-items:center;gap:12px;border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.conf-reminder.cr-info{background:#eaf3fb;border:1px solid #cfe3f5}
+.conf-reminder.cr-warn{background:#fff4e0;border:1px solid #ffe0a8}
+.conf-reminder .cr-emoji{font-size:18px;flex-shrink:0}
+.conf-reminder .cr-main{font-size:13.5px;font-weight:600}
+.conf-reminder .cr-sub{font-size:12.5px;margin-top:1px;opacity:.85}
+.conf-reminder.cr-info .cr-main,.conf-reminder.cr-info .cr-sub{color:#1864ab}
+.conf-reminder.cr-warn .cr-main,.conf-reminder.cr-warn .cr-sub{color:#9a6700}
+.conf-late-badge{margin-left:auto;font-size:11px;font-weight:700;background:#fff4e0;color:#9a6700;padding:3px 10px;border-radius:8px;white-space:nowrap}
 
 @media(max-width:767px){
   .app-body{display:block;overflow-x:hidden}
@@ -513,9 +522,11 @@ const GRUPO_ORDER=['Director','Gerente','Diseñador','Performance'];
 const BADGE_MAP={A:'badge-a',B:'badge-b',C:'badge-c','B+':'badge-bp'};
 const BADGE_LABEL={A:'Base + KPIs',B:'Base fija',C:'Solo entregables','B+':'Base + extras'};
 
-let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null,resumenPeriodoId=null,reportData=null;
+let currentUser=null,isAdmin=false,colaboradores=[],periodos=[],selectedColabId=null,currentPeriodo=null,resumenPeriodoId=null,reportData=null,confettiShownFor=null;
 
 function fmt(n){return '$'+(Math.round(n||0)).toLocaleString('es-MX')}
+function localDateStr(d){const x=d||new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function esFinDeSemana(d){const dow=d.getDay();return dow===0||dow===6}
 function initials(n){return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}
 function avClass(i){return AV[i%AV.length]}
 function cc(v){return v>=75?'green':v>=50?'amber':v>0?'red':'gray'}
@@ -835,11 +846,22 @@ async function renderColabView(colabId){
   const colabDelUsuario=colaboradores.find(c=>c.user_id===currentUser?.id);
   const esPropio=colabDelUsuario?.id===colabId;
   if(esPropio){
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=localDateStr(new Date());
   const periodoFin=currentPeriodo?.fecha_fin;
   const esUltimoDia=periodoFin===todayStr;
   const{data:conf}=await sb.from('confirmaciones').select('*')
     .eq('colaborador_id',colabId).eq('fecha',todayStr).maybeSingle();
+
+  const HORA_LIMITE=16; // 4:00 PM
+  const ahora=new Date();
+  const pasoLimite=ahora.getHours()>=HORA_LIMITE;
+  // Minutos restantes hasta las 4pm de hoy
+  const limiteHoy=new Date(ahora);limiteHoy.setHours(HORA_LIMITE,0,0,0);
+  const minsRestantes=Math.max(0,Math.round((limiteHoy-ahora)/60000));
+  const hRest=Math.floor(minsRestantes/60),mRest=minsRestantes%60;
+  const cuentaRegresiva=hRest>0?`Faltan ${hRest} h ${mRest} min`:`Faltan ${mRest} min`;
+  // ¿La confirmación existente fue tardía? (se hizo a las 4pm o después)
+  const confFueTardia=conf?.confirmado && new Date(conf.fecha_confirmacion).getHours()>=HORA_LIMITE;
 
   const confTitle=esUltimoDia
     ?'¿Confirmas el período completo?'
@@ -848,15 +870,22 @@ async function renderColabView(colabId){
 
   if(conf?.confirmado){
     html+=`<div class="conf-card conf-ok">
-      <div class="conf-icon">${esUltimoDia?'🏁':'✅'}</div>
-      <div>
+      <div style="display:flex;align-items:center;width:100%">
+        <div class="conf-icon" style="margin-bottom:0;margin-right:10px">${esUltimoDia?'🏁':'✅'}</div>
         <div class="conf-title">${esUltimoDia?'Período confirmado':'Confirmado hoy'}</div>
-        <div class="conf-sub">Registrado el ${new Date(conf.fecha_confirmacion).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})} a las ${new Date(conf.fecha_confirmacion).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</div>
+        ${confFueTardia?'<span class="conf-late-badge">Tardía</span>':''}
+      </div>
+      <div style="margin-top:8px">
+        <div class="conf-sub">Registrado el ${new Date(conf.fecha_confirmacion).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})} a las ${new Date(conf.fecha_confirmacion).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}${confFueTardia?' · después del límite':''}</div>
         ${conf.comentario?`<div class="conf-comment">"${conf.comentario}"</div>`:''}
       </div>
     </div>`;
   } else {
+    const reminder=pasoLimite
+      ?`<div class="conf-reminder cr-warn"><span class="cr-emoji">⚠️</span><div><div class="cr-main">Ya pasó la hora límite (4:00 PM)</div><div class="cr-sub">Aún puedes confirmar, pero quedará marcada como tardía</div></div></div>`
+      :`<div class="conf-reminder cr-info"><span class="cr-emoji">⏰</span><div><div class="cr-main">Tienes hasta las 4:00 PM para confirmar</div><div class="cr-sub">${cuentaRegresiva}</div></div></div>`;
     html+=`<div class="conf-card">
+      ${reminder}
       <div class="conf-title">${confTitle}</div>
       <div class="conf-sub">Solo puedes confirmar una vez al día. Quedará registrado con fecha y hora.</div>
       <button class="btn-apple" style="margin-top:14px" onclick="confirmarAcuerdo('${colabId}','${currentPeriodo?.id}','${todayStr}',false)">${confBtn}</button>
@@ -875,7 +904,11 @@ async function renderColabView(colabId){
   el.innerHTML=html;
   el.dataset.loaded='1';
   el.style.opacity='';
-  if(superaBasal) setTimeout(launchPageConfetti, 300);
+  const confettiKey=`${colabId}|${currentPeriodo?.id}`;
+  if(superaBasal && confettiShownFor!==confettiKey){
+    confettiShownFor=confettiKey;
+    setTimeout(launchPageConfetti, 300);
+  }
 }
 
 function toggleDiscrepancia(colabId){
@@ -1090,7 +1123,7 @@ async function renderAdminResumen(){
   const[{data:allRegs},{data:allKpis},{data:allConfs}]=await Promise.all([
     sb.from('registros').select('*').eq('periodo_id',pid),
     sb.from('kpis').select('*'),
-    sb.from('confirmaciones').select('*').eq('periodo_id',pid).eq('fecha',new Date().toISOString().split('T')[0])
+    sb.from('confirmaciones').select('*').eq('periodo_id',pid).eq('fecha',localDateStr(new Date()))
   ]);
   const grouped=sortedColabs();
   let grand=0,totalBasales=0,totalKpis=0;
@@ -1344,7 +1377,7 @@ async function renderKpisTab(){
   const[{data:allRegs},{data:allKpis}]=await Promise.all([
     sb.from('registros').select('*').eq('periodo_id',currentPeriodo.id),
     sb.from('kpis').select('*'),
-    sb.from('confirmaciones').select('*').eq('periodo_id',pid).eq('fecha',new Date().toISOString().split('T')[0])
+    sb.from('confirmaciones').select('*').eq('periodo_id',pid).eq('fecha',localDateStr(new Date()))
   ]);
   const grouped=sortedColabs();
   const gLabel=g=>({Director:'Directores',Gerente:'Gerentes',Diseñador:'Diseñadores',Performance:'Performance'}[g]||g);
@@ -1410,13 +1443,14 @@ async function renderConfirmaciones(){
     .eq('colaborador_id',colabId).eq('periodo_id',periodoId)
     .order('fecha',{ascending:false});
 
-  // Generate all days in period
+  // Generate all days in period (días hábiles hasta hoy, inclusive)
   const start=new Date(periodo.fecha_inicio+'T12:00:00');
   const end=new Date(periodo.fecha_fin+'T12:00:00');
-  const today=new Date();
+  const todayStr=localDateStr(new Date());
   const days=[];
   for(let d=new Date(end);d>=start;d.setDate(d.getDate()-1)){
-    if(d>today) continue;
+    if(esFinDeSemana(d)) continue;
+    if(localDateStr(d)>todayStr) continue;
     days.push(new Date(d));
   }
 
@@ -1428,17 +1462,19 @@ async function renderConfirmaciones(){
   let html=`<div style="margin-bottom:12px;font-size:13px;color:var(--gray4)">${colab.nombre} · ${fmtPeriodo(periodo)}</div>`;
   html+=`<div class="kpi-list">`;
   days.forEach(d=>{
-    const dateStr=d.toISOString().split('T')[0];
+    const dateStr=localDateStr(d);
     const conf=confMap[dateStr];
     const label=d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
-    const isToday=dateStr===today.toISOString().split('T')[0];
+    const isToday=dateStr===todayStr;
 
     if(conf?.confirmado){
-      const hora=new Date(conf.fecha_confirmacion).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+      const hConf=new Date(conf.fecha_confirmacion);
+      const hora=hConf.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+      const fueTardia=hConf.getHours()>=16;
       html+=`<div class="kpi-item">
         <div class="kpi-top">
           <span class="kpi-name" style="text-transform:capitalize">${label}${isToday?' · Hoy':''}</span>
-          <span style="font-size:12px;color:var(--green);font-weight:600">✅ ${hora}</span>
+          <span style="font-size:12px;color:var(--green);font-weight:600">✅ ${hora}${fueTardia?' <span style="color:#9a6700;font-weight:700">· Tardía</span>':''}</span>
         </div>
         ${conf.comentario?`<div style="font-size:12px;color:var(--gray4);margin-top:4px;font-style:italic">💬 "${conf.comentario}"</div>`:''}
       </div>`;
