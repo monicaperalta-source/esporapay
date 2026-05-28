@@ -59,6 +59,8 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 /* MAIN */
 .main{flex:1;padding:32px;display:flex;justify-content:center}
 .main-inner{width:100%;max-width:620px}
+.no-sidebar .main{padding:40px}
+.no-sidebar .main-inner{max-width:780px}
 @media(max-width:767px){
   .app-body{overflow-x:hidden}
   .main{padding:16px;overflow-x:hidden;width:100%}
@@ -99,12 +101,15 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .badge-c{background:#e8f5e9;color:#1b5e20}.badge-bp{background:#fff3e0;color:#e65100}
 
 .balance-card{background:var(--black);border-radius:20px;padding:28px;margin-bottom:16px}
+.no-sidebar .balance-card{padding:36px 40px;border-radius:24px}
+.no-sidebar .bc-amount{font-size:56px}
 .bc-label{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:8px}
 .bc-amount{font-size:44px;font-weight:700;color:#fff;letter-spacing:-1.5px;line-height:1}
 .bc-amount sup{font-size:20px;font-weight:500;vertical-align:super;opacity:.5;letter-spacing:0}
 .bc-period{font-size:12px;color:rgba(255,255,255,.3);margin-top:12px}
 
 .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.no-sidebar .stats-row{grid-template-columns:repeat(3,1fr)}
 .stat-tile{background:var(--gray1);border-radius:14px;padding:16px}
 .st-label{font-size:11px;color:var(--gray4);text-transform:uppercase;letter-spacing:.04em;font-weight:500;margin-bottom:6px}
 .st-val{font-size:20px;font-weight:700;letter-spacing:-.4px}
@@ -520,6 +525,7 @@ async function initApp(user){
     await renderAdminResumen();
   }else{
     document.getElementById('sidebar').style.display='none';
+    document.querySelector('.app-body').classList.add('no-sidebar');
     const colab=colaboradores.find(c=>c.user_id===user.id);
     if(colab){selectedColabId=colab.id;await renderColabView(colab.id)}
     else document.getElementById('colab-content').innerHTML='<div class="empty-state">Tu cuenta aún no está vinculada a un colaborador.<br>Contacta al administrador.</div>';
