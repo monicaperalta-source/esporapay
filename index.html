@@ -325,24 +325,6 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
             </div>
           </div>
 
-          <div class="admin-panel" id="panel-kpis-tab">
-            <div style="margin-bottom:20px">
-              <div style="font-size:13px;color:var(--gray4);margin-bottom:4px" id="kpis-period-label"></div>
-              <div style="font-size:22px;font-weight:700;letter-spacing:-.5px">Diferenciación KPIs</div>
-            </div>
-            <div id="kpis-list"><div class="loading">Cargando...</div></div>
-            <div class="resumen-totales" style="margin-top:24px">
-              <div class="rt-row">
-                <span class="rt-label">Total diferenciación KPIs</span>
-                <span class="rt-val" style="color:var(--green)" id="kpis-total-dif">$0</span>
-              </div>
-              <div class="rt-row">
-                <span class="rt-label">Colaboradores con diferenciación</span>
-                <span class="rt-val" id="kpis-count">0</span>
-              </div>
-            </div>
-          </div>
-
           <div class="admin-panel" id="panel-equipo">
             <div id="team-list"><div class="loading">Cargando...</div></div>
             <div style="margin-top:32px;padding-top:28px;border-top:1px solid var(--gray2)">
@@ -926,7 +908,7 @@ async function renderAdminResumen(){
   });
   if(!hayKpis) htmlKpis+=`<div class="empty-state" style="padding:20px 0">Sin diferenciaciones este período</div>`;
 
-  document.getElementById('adm-list').innerHTML=htmlBasales;
+  document.getElementById('adm-list').innerHTML=htmlBasales+htmlKpis;
   document.getElementById('adm-total').textContent=fmt(grand);
   document.getElementById('adm-basales').textContent=fmt(totalBasales);
   document.getElementById('adm-kpis').textContent=fmt(totalKpis);
@@ -1037,7 +1019,6 @@ function switchAdminTab(tab,btn){
   btn.classList.add('active');
   document.getElementById('panel-'+tab).classList.add('visible');
   if(tab==='resumen')renderAdminResumen();
-  if(tab==='kpis-tab')renderKpisTab();
   if(tab==='equipo')renderTeam();
 }
 
