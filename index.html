@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -337,6 +338,23 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
                 <span class="rt-val-total" id="adm-total">$0</span>
               </div>
             </div>
+          </div>
+
+          <div class="admin-panel" id="panel-confirmaciones">
+            <div style="margin-bottom:20px">
+              <div style="font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:12px">Historial de confirmaciones</div>
+              <div class="form-grid">
+                <div class="form-block">
+                  <label class="form-label">Colaborador</label>
+                  <select class="form-field" id="conf-colab-sel" onchange="renderConfirmaciones()"></select>
+                </div>
+                <div class="form-block">
+                  <label class="form-label">Período</label>
+                  <select class="form-field" id="conf-periodo-sel" onchange="renderConfirmaciones()"></select>
+                </div>
+              </div>
+            </div>
+            <div id="conf-list"><div class="loading">Cargando...</div></div>
           </div>
 
           <div class="admin-panel" id="panel-equipo">
@@ -850,6 +868,15 @@ function populateAdminForm(){
     resSel.innerHTML=periodos.map(p=>`<option value="${p.id}" ${p.activo?'selected':''}>${fmtPeriodo(p)}${p.activo?' · Actual':''}</option>`).join('');
     resumenPeriodoId=currentPeriodo?.id;
   }
+  // Populate confirmaciones selectors
+  const confColabSel=document.getElementById('conf-colab-sel');
+  const confPerSel=document.getElementById('conf-periodo-sel');
+  if(confColabSel){
+    confColabSel.innerHTML=colaboradores.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  }
+  if(confPerSel){
+    confPerSel.innerHTML=periodos.map(p=>`<option value="${p.id}" ${p.activo?'selected':''}>${fmtPeriodo(p)}${p.activo?' · Actual':''}</option>`).join('');
+  }
   loadKpisForAdmin();
 }
 
@@ -1140,6 +1167,78 @@ async function renderKpisTab(){
   document.getElementById('kpis-count').textContent=countDif+' colaboradores';
 }
 
+async function renderConfirmaciones(){
+  const colabId=document.getElementById('conf-colab-sel')?.value;
+  const periodoId=document.getElementById('conf-periodo-sel')?.value;
+  const el=document.getElementById('conf-list');
+  if(!colabId||!periodoId){el.innerHTML='<div class="empty-state">Selecciona colaborador y período</div>';return}
+  el.innerHTML='<div class="loading">Cargando...</div>';
+
+  const colab=colaboradores.find(c=>c.id===colabId);
+  const periodo=periodos.find(p=>p.id===periodoId);
+  if(!colab||!periodo){el.innerHTML='<div class="empty-state">No encontrado</div>';return}
+
+  // Get all confirmaciones for this colab and periodo
+  const{data:confs}=await sb.from('confirmaciones').select('*')
+    .eq('colaborador_id',colabId).eq('periodo_id',periodoId)
+    .order('fecha',{ascending:false});
+
+  // Generate all days in period
+  const start=new Date(periodo.fecha_inicio+'T12:00:00');
+  const end=new Date(periodo.fecha_fin+'T12:00:00');
+  const today=new Date();
+  const days=[];
+  for(let d=new Date(end);d>=start;d.setDate(d.getDate()-1)){
+    if(d>today) continue;
+    days.push(new Date(d));
+  }
+
+  if(!days.length){el.innerHTML='<div class="empty-state">Sin días registrados aún</div>';return}
+
+  const confMap={};
+  confs?.forEach(c=>confMap[c.fecha]=c);
+
+  let html=`<div style="margin-bottom:12px;font-size:13px;color:var(--gray4)">${colab.nombre} · ${fmtPeriodo(periodo)}</div>`;
+  html+=`<div class="kpi-list">`;
+  days.forEach(d=>{
+    const dateStr=d.toISOString().split('T')[0];
+    const conf=confMap[dateStr];
+    const label=d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+    const isToday=dateStr===today.toISOString().split('T')[0];
+
+    if(conf?.confirmado){
+      const hora=new Date(conf.fecha_confirmacion).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+      html+=`<div class="kpi-item">
+        <div class="kpi-top">
+          <span class="kpi-name" style="text-transform:capitalize">${label}${isToday?' · Hoy':''}</span>
+          <span style="font-size:12px;color:var(--green);font-weight:600">✅ ${hora}</span>
+        </div>
+        ${conf.comentario?`<div style="font-size:12px;color:var(--gray4);margin-top:4px;font-style:italic">💬 "${conf.comentario}"</div>`:''}
+      </div>`;
+    } else {
+      html+=`<div class="kpi-item">
+        <div class="kpi-top">
+          <span class="kpi-name" style="text-transform:capitalize;color:${isToday?'var(--amber)':'var(--gray4)'}">${label}${isToday?' · Hoy':''}</span>
+          <span style="font-size:12px;color:${isToday?'var(--amber)':'var(--gray5)'};font-weight:500">${isToday?'⏳ Pendiente':'— Sin confirmar'}</span>
+        </div>
+      </div>`;
+    }
+  });
+  html+=`</div>`;
+
+  // Summary
+  const total=days.length;
+  const confirmados=confs?.filter(c=>c.confirmado).length||0;
+  const conComentario=confs?.filter(c=>c.comentario).length||0;
+  html+=`<div class="resumen-totales" style="margin-top:16px">
+    <div class="rt-row"><span class="rt-label">Días confirmados</span><span class="rt-val" style="color:var(--green)">${confirmados} de ${total}</span></div>
+    <div class="rt-row"><span class="rt-label">Con comentario</span><span class="rt-val">${conComentario}</span></div>
+    <div class="rt-row"><span class="rt-label">Sin confirmar</span><span class="rt-val" style="color:var(--amber)">${total-confirmados}</span></div>
+  </div>`;
+
+  el.innerHTML=html;
+}
+
 async function renderTeam(){
   const grouped=sortedColabs();
   let html='';
@@ -1190,6 +1289,7 @@ function switchAdminTab(tab,btn){
   btn.classList.add('active');
   document.getElementById('panel-'+tab).classList.add('visible');
   if(tab==='resumen')renderAdminResumen();
+  if(tab==='confirmaciones')renderConfirmaciones();
   if(tab==='equipo')renderTeam();
 }
 
