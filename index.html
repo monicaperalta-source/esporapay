@@ -546,49 +546,64 @@ function renderSidebar(){
   initDragDrop();
 }
 
-let dragSrc=null;
+let dragSrc=null,dragGrupo=null;
 function initDragDrop(){
-  document.querySelectorAll('.side-drag-handle[draggable]').forEach(handle=>{
+  document.querySelectorAll('.side-drag-handle').forEach(handle=>{
     handle.addEventListener('dragstart',e=>{
-      dragSrc=handle.closest('.side-item');
+      const item=handle.closest('.side-item');
+      dragSrc=item.dataset.id;
+      dragGrupo=item.dataset.grupo;
+      e.dataTransfer.setData('text/plain',dragSrc);
       e.dataTransfer.effectAllowed='move';
-      setTimeout(()=>dragSrc.style.opacity='.4',0);
+      setTimeout(()=>item.style.opacity='.4',0);
     });
     handle.addEventListener('dragend',e=>{
-      if(dragSrc)dragSrc.style.opacity='';
-      document.querySelectorAll('.side-item').forEach(x=>x.classList.remove('drag-over'));
+      document.querySelectorAll('.side-item').forEach(x=>{x.style.opacity='';x.classList.remove('drag-over')});
+      dragSrc=null;dragGrupo=null;
     });
   });
+
   document.querySelectorAll('.side-item').forEach(el=>{
+    el.addEventListener('dragenter',e=>{e.preventDefault()});
     el.addEventListener('dragover',e=>{
       e.preventDefault();
-      if(el!==dragSrc&&el.dataset.grupo===dragSrc?.dataset.grupo){
+      e.dataTransfer.dropEffect='move';
+      if(el.dataset.id!==dragSrc&&el.dataset.grupo===dragGrupo){
         document.querySelectorAll('.side-item').forEach(x=>x.classList.remove('drag-over'));
         el.classList.add('drag-over');
       }
     });
+    el.addEventListener('dragleave',e=>{el.classList.remove('drag-over')});
     el.addEventListener('drop',async e=>{
-      e.preventDefault();
-      if(el===dragSrc||el.dataset.grupo!==dragSrc?.dataset.grupo)return;
+      e.preventDefault();e.stopPropagation();
+      const toId=el.dataset.id;
+      const toGrupo=el.dataset.grupo;
+      if(!dragSrc||toId===dragSrc||toGrupo!==dragGrupo)return;
       el.classList.remove('drag-over');
-      const grupo=el.dataset.grupo;
+
+      // Reorder within the group
       const grouped=sortedColabs();
-      const list=grouped[grupo];
-      const fromIdx=list.findIndex(c=>c.id===dragSrc.dataset.id);
-      const toIdx=list.findIndex(c=>c.id===el.dataset.id);
+      const list=[...grouped[dragGrupo]];
+      const fromIdx=list.findIndex(c=>c.id===dragSrc);
+      const toIdx=list.findIndex(c=>c.id===toId);
       if(fromIdx<0||toIdx<0)return;
       const[moved]=list.splice(fromIdx,1);
       list.splice(toIdx,0,moved);
+
+      // Update orden locally and in DB
+      const updates=[];
       let orden=0;
       GRUPO_ORDER.forEach(g=>{
-        const gList=g===grupo?list:(sortedColabs()[g]||[]);
-        gList.forEach(async(c,i)=>{
+        const gList=g===dragGrupo?list:(sortedColabs()[g]||[]);
+        gList.forEach(c=>{
           const col=colaboradores.find(x=>x.id===c.id);
           if(col)col.orden=orden;
-          await sb.from('colaboradores').update({orden}).eq('id',c.id);
+          updates.push({id:c.id,orden});
           orden++;
         });
       });
+      // Save all to DB
+      await Promise.all(updates.map(u=>sb.from('colaboradores').update({orden:u.orden}).eq('id',u.id)));
       renderSidebar();
       renderChipsMobile();
     });
