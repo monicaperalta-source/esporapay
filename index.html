@@ -530,16 +530,69 @@ function renderSidebar(){
   GRUPO_ORDER.forEach(g=>{
     if(!grouped[g]?.length)return;
     const grupoLabel={Director:'Directores',Gerente:'Gerentes',Diseñador:'Diseñadores',Performance:'Performance'}[g]||g;
-      html+=`<div class="side-group-title">${grupoLabel}</div>`;
+    html+=`<div class="side-group-title">${grupoLabel}</div>`;
+    html+=`<div class="side-group-list" data-grupo="${g}">`;
     grouped[g].forEach((c,i)=>{
       const idx=colaboradores.findIndex(x=>x.id===c.id);
-      html+=`<div class="side-item ${c.id===selectedColabId?'active':''}" onclick="selectColab('${c.id}')">
-        <div class="side-av ${avClass(idx)}">${initials(c.nombre)}</div>
-        <div><div class="side-name">${c.nombre}</div><div class="side-role">${c.puesto||''}</div></div>
+      html+=`<div class="side-item ${c.id===selectedColabId?'active':''}" data-id="${c.id}" data-grupo="${g}">
+        <div class="side-drag-handle" draggable="true" data-id="${c.id}" data-grupo="${g}" title="Arrastrar">⠿</div>
+        <div class="side-av ${avClass(idx)}" onclick="selectColab('${c.id}')" style="cursor:pointer">${initials(c.nombre)}</div>
+        <div style="flex:1;cursor:pointer" onclick="selectColab('${c.id}')"><div class="side-name">${c.nombre}</div><div class="side-role">${c.puesto||''}</div></div>
       </div>`;
     });
+    html+=`</div>`;
   });
   document.getElementById('sidebar-list').innerHTML=html;
+  initDragDrop();
+}
+
+let dragSrc=null;
+function initDragDrop(){
+  document.querySelectorAll('.side-drag-handle[draggable]').forEach(handle=>{
+    handle.addEventListener('dragstart',e=>{
+      dragSrc=handle.closest('.side-item');
+      e.dataTransfer.effectAllowed='move';
+      setTimeout(()=>dragSrc.style.opacity='.4',0);
+    });
+    handle.addEventListener('dragend',e=>{
+      if(dragSrc)dragSrc.style.opacity='';
+      document.querySelectorAll('.side-item').forEach(x=>x.classList.remove('drag-over'));
+    });
+  });
+  document.querySelectorAll('.side-item').forEach(el=>{
+    el.addEventListener('dragover',e=>{
+      e.preventDefault();
+      if(el!==dragSrc&&el.dataset.grupo===dragSrc?.dataset.grupo){
+        document.querySelectorAll('.side-item').forEach(x=>x.classList.remove('drag-over'));
+        el.classList.add('drag-over');
+      }
+    });
+    el.addEventListener('drop',async e=>{
+      e.preventDefault();
+      if(el===dragSrc||el.dataset.grupo!==dragSrc?.dataset.grupo)return;
+      el.classList.remove('drag-over');
+      const grupo=el.dataset.grupo;
+      const grouped=sortedColabs();
+      const list=grouped[grupo];
+      const fromIdx=list.findIndex(c=>c.id===dragSrc.dataset.id);
+      const toIdx=list.findIndex(c=>c.id===el.dataset.id);
+      if(fromIdx<0||toIdx<0)return;
+      const[moved]=list.splice(fromIdx,1);
+      list.splice(toIdx,0,moved);
+      let orden=0;
+      GRUPO_ORDER.forEach(g=>{
+        const gList=g===grupo?list:(sortedColabs()[g]||[]);
+        gList.forEach(async(c,i)=>{
+          const col=colaboradores.find(x=>x.id===c.id);
+          if(col)col.orden=orden;
+          await sb.from('colaboradores').update({orden}).eq('id',c.id);
+          orden++;
+        });
+      });
+      renderSidebar();
+      renderChipsMobile();
+    });
+  });
 }
 
 function renderChipsMobile(){
