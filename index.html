@@ -45,7 +45,10 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .app-body{display:flex;min-height:calc(100vh - var(--nav-h))}
 
 /* SIDEBAR */
-.sidebar{width:var(--sidebar-w);flex-shrink:0;border-right:1px solid var(--gray2);padding:12px 10px;position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));overflow-y:auto;display:none;scrollbar-width:none}
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:#f5f5f7;border-right:1px solid var(--gray2);padding:12px 10px;position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));overflow-y:auto;display:none;scrollbar-width:none}
+.sidebar-resizer{position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));width:6px;margin-left:-3px;margin-right:-3px;cursor:col-resize;z-index:10;background:transparent;flex-shrink:0;transition:background .15s ease}
+.sidebar-resizer:hover,.sidebar-resizer.dragging{background:rgba(0,122,255,.18)}
+.sidebar.resizing,.sidebar.resizing *{user-select:none;-webkit-user-select:none}
 .sidebar::-webkit-scrollbar{display:none}
 @media(min-width:768px){.sidebar{display:block}}
 .side-group-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gray5);padding:12px 10px 5px;margin-top:4px}
@@ -310,6 +313,7 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
     <div class="sidebar" id="sidebar">
       <div id="sidebar-list"></div>
     </div>
+    <div class="sidebar-resizer" id="sidebar-resizer" title="Arrastra para cambiar el ancho"></div>
 
     <div class="main">
       <div class="main-inner">
@@ -646,6 +650,7 @@ async function initApp(user){
     await renderColabView(selectedColabId);
     populateAdminForm();
     await renderAdminResumen();
+    initSidebarResize();
   }else{
     document.getElementById('sidebar').style.display='none';
     document.querySelector('.app-body').classList.add('no-sidebar');
@@ -678,6 +683,40 @@ function renderSidebar(){
 }
 
 let dragSrc=null,dragGrupo=null;
+function initSidebarResize(){
+  const resizer=document.getElementById('sidebar-resizer');
+  const sidebar=document.getElementById('sidebar');
+  if(!resizer||!sidebar||resizer.dataset.bound)return;
+  resizer.dataset.bound='1';
+  const MIN=180,MAX=400;
+  let startX=0,startW=0,dragging=false;
+  function onMouseDown(e){
+    e.preventDefault();
+    dragging=true;
+    startX=e.clientX;
+    startW=sidebar.getBoundingClientRect().width;
+    resizer.classList.add('dragging');
+    sidebar.classList.add('resizing');
+    document.body.style.cursor='col-resize';
+    window.addEventListener('mousemove',onMouseMove);
+    window.addEventListener('mouseup',onMouseUp);
+  }
+  function onMouseMove(e){
+    if(!dragging)return;
+    const newW=Math.min(MAX,Math.max(MIN,startW+(e.clientX-startX)));
+    sidebar.style.width=newW+'px';
+  }
+  function onMouseUp(){
+    dragging=false;
+    resizer.classList.remove('dragging');
+    sidebar.classList.remove('resizing');
+    document.body.style.cursor='';
+    window.removeEventListener('mousemove',onMouseMove);
+    window.removeEventListener('mouseup',onMouseUp);
+  }
+  resizer.addEventListener('mousedown',onMouseDown);
+}
+
 function initDragDrop(){
   document.querySelectorAll('.side-drag-handle').forEach(handle=>{
     handle.addEventListener('dragstart',e=>{
