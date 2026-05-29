@@ -182,10 +182,13 @@ body{background:#fff;color:var(--black);font-family:var(--font);min-height:100vh
 .rt-val-total{font-size:20px;font-weight:700;color:var(--black)}
 .conf-card{background:var(--gray1);border-radius:16px;padding:20px;margin-bottom:24px;border:1.5px solid var(--gray2)}
 .conf-card.conf-ok{background:#f0faf3;border-color:#c6f0d8}
+.conf-card.conf-attention{background:#fff8ec;border-color:#ffe0a8}
 .conf-icon{font-size:28px;margin-bottom:10px}
 .conf-title{font-size:15px;font-weight:600;color:var(--black);margin-bottom:4px}
 .conf-sub{font-size:13px;color:var(--gray4);line-height:1.5}
 .conf-comment{font-size:13px;color:var(--gray4);font-style:italic;margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #c6f0d8}
+.conf-comment.conf-comment-attention{color:#1c1c1e;font-style:normal;border:1px solid #ffe0a8;border-left:3px solid #e8a33d;background:#fff}
+.conf-attention-badge{margin-left:auto;font-size:11px;font-weight:700;background:#ffedcc;color:#9a6700;padding:3px 10px;border-radius:8px;white-space:nowrap}
 .conf-reminder{display:flex;align-items:center;gap:12px;border-radius:12px;padding:12px 14px;margin-bottom:14px}
 .conf-reminder.cr-info{background:#eaf3fb;border:1px solid #cfe3f5}
 .conf-reminder.cr-warn{background:#fff4e0;border:1px solid #ffe0a8}
@@ -911,15 +914,20 @@ async function renderColabView(colabId){
   const confBtn=esUltimoDia?'✓ Confirmo el período completo':'✓ Confirmo mi acuerdo del día';
 
   if(conf?.confirmado){
-    html+=`<div class="conf-card conf-ok">
+    const tieneComentario=!!conf.comentario;
+    const cardCls=tieneComentario?'conf-attention':'conf-ok';
+    const icono=esUltimoDia?'🏁':(tieneComentario?'📝':'✅');
+    const titulo=esUltimoDia?'Período confirmado':(tieneComentario?'Confirmado con comentario':'Confirmado hoy');
+    html+=`<div class="conf-card ${cardCls}">
       <div style="display:flex;align-items:center;width:100%">
-        <div class="conf-icon" style="margin-bottom:0;margin-right:10px">${esUltimoDia?'🏁':'✅'}</div>
-        <div class="conf-title">${esUltimoDia?'Período confirmado':'Confirmado hoy'}</div>
-        ${confFueTardia?'<span class="conf-late-badge">Tardía</span>':''}
+        <div class="conf-icon" style="margin-bottom:0;margin-right:10px">${icono}</div>
+        <div class="conf-title">${titulo}</div>
+        ${tieneComentario?'<span class="conf-attention-badge">Requiere atención</span>':''}
+        ${confFueTardia?'<span class="conf-late-badge" style="margin-left:6px">Tardía</span>':''}
       </div>
       <div style="margin-top:8px">
         <div class="conf-sub">Registrado el ${new Date(conf.fecha_confirmacion).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})} a las ${new Date(conf.fecha_confirmacion).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}${confFueTardia?' · después del límite':''}</div>
-        ${conf.comentario?`<div class="conf-comment">"${conf.comentario}"</div>`:''}
+        ${conf.comentario?`<div class="conf-comment conf-comment-attention">"${conf.comentario}"</div>`:''}
       </div>
     </div>`;
   } else {
